@@ -155,7 +155,7 @@ keeps the future LangExtract/Ollama wiring at a separate boundary.
 - Modify: `RTK.md`
 
 - [ ] Inventory repeated object construction and private-helper clusters in the core modules.
-- [ ] Audit coercion-heavy code such as `src/lib_finder/sources/parsing.py` for EAFP-style simplification where try/except reduces branching and makes the failure mode clearer.
+- [ ] Audit coercion-heavy code such as `src/lib_finder/sources/factories.py` and `src/lib_finder/sources/status.py` for EAFP-style simplification where try/except reduces branching and makes the failure mode clearer.
 - [ ] Extract repeated record and validation construction into explicit factory/service objects whenever that removes coupling or flattens a nested helper cluster.
 - [ ] Keep private helper functions only where they are true implementation details; prefer narrower, named interfaces for shared creation.
 - [ ] Keep local Codex/agent artifacts outside the repo boundary and documented as private-only workspace material.

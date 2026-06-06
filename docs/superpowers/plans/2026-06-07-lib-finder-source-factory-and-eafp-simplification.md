@@ -6,6 +6,8 @@
 
 **Architecture:** Keep the public `lib_finder.sources.parsing` API stable, but move the construction logic into a focused factory object and narrower helper functions so the code is easier to reason about and test. Use EAFP where it reduces nested LBYL checks in payload parsing, but keep the public behavior and validation surface unchanged. Add a repo-local Codex note under a gitignored path so future agent sessions inherit the same repo-local conventions without committing operator notes into the product tree.
 
+**Implementation note:** the implemented shape keeps `PyPIRecordFactory` as the construction boundary in `src/lib_finder/sources/factories.py`, while `src/lib_finder/sources/parsing.py` remains a thin compatibility facade for the public builders.
+
 **Tech Stack:** Python 3.14, Pydantic, pytest, ruff, pyright, import-linter, lefthook, UV, RTK.
 
 **Priority note:** Treat this as the next refactor lane before broadening later V3 domain layers. When touching `src/lib_finder/sources/parsing.py` or related construction paths, prefer the simplest boundary that removes LBYL guard ladders, makes the failure point obvious, and exposes a small factory/service object only where it actually reduces coupling.

@@ -11,7 +11,6 @@ import ijson
 from .constants import PYPI_SIMPLE_ACCEPT, PYPI_SIMPLE_INDEX_URL
 from .models import ProjectDetailRecord, ProjectDiscoveryRecord, ProjectSelectionRecord
 from .parsing import (
-    _parse_last_serial,
     build_project_detail_record,
     build_project_discovery_record,
 )
@@ -19,6 +18,18 @@ from .parsing import (
 
 def _iso_now() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _parse_last_serial(value: str | None) -> int | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
 
 
 async def fetch_project_detail_record(

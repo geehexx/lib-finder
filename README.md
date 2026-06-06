@@ -143,7 +143,8 @@ share the same schema bootstrap path.
 
 The parser and storage record models are Pydantic-based. The source adapter is
 split across `src/lib_finder/sources/constants.py`,
-`src/lib_finder/sources/factories.py`, `src/lib_finder/sources/parsing.py`,
+`src/lib_finder/sources/factories.py` (payload construction),
+`src/lib_finder/sources/parsing.py` (compatibility facade),
 `src/lib_finder/sources/status.py`, `src/lib_finder/sources/client.py`, and
 `src/lib_finder/sources/models.py`. The old wrapper modules are gone;
 canonical source imports point directly at these submodules. The remaining work
