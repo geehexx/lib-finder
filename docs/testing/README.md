@@ -110,6 +110,9 @@ unit/edge tests around the branch that is being flattened. That usually means:
 - keep a companion edge test for the exceptional branch you are simplifying;
 - prefer a tiny factory/service object over an extra layer of private helpers if
   the new boundary makes the tests easier to read and maintain.
+- the same rule now applies to storage row preparation in
+  `src/lib_finder/storage/factories.py`, where the persistence layer should
+  stay focused on writes and transactions rather than data shaping.
 
 ## RTK Policy
 

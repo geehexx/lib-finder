@@ -1,47 +1,14 @@
 from __future__ import annotations
 
-from lib_finder.storage.store import (
-    _artifact_version_from_filename,
-    _artifact_yanked_fields,
-    _detail_last_serial,
-    _detail_record_name,
-    _mapping_first_value,
-    _prepare_project_detail_rows,
-    _project_status_fields,
+from lib_finder.storage.factories import (
+    AdoptionQualificationCalculator,
+    ProjectDetailRowFactory,
 )
 
 
-def test_detail_helpers_cover_serial_status_and_artifact_fallbacks() -> None:
-    assert _detail_last_serial({"project_last_serial": 1}) == 1
-    assert _detail_last_serial({"project_last_serial": "2"}) == 2
-    assert _detail_last_serial({"detail_last_serial": 3}) == 3
-    assert _detail_last_serial({"detail_last_serial": "4"}) == 4
-    assert _detail_last_serial({"meta": {"_last-serial": 5}}) == 5
-    assert _detail_last_serial({"_last-serial": "6"}) == 6
-    assert _detail_last_serial({}) is None
-
-    assert _project_status_fields(
-        {"project_status": "active", "status_reason": "maintained"}
-    ) == ("active", "maintained")
-    assert _project_status_fields({"project_status": "active"}) == ("active", None)
-    assert _project_status_fields(
-        {"project-status": {"status": "deprecated", "reason": "old"}}
-    ) == ("deprecated", "old")
-    assert _project_status_fields({"status": "archived"}) == ("archived", None)
-    assert _project_status_fields({}) == (None, None)
-
-    assert _artifact_version_from_filename("requests-2.0-py3-none-any.whl") == "2.0"
-    assert _artifact_version_from_filename("requests-2.0.tar.gz") == "2.0"
-    assert _artifact_version_from_filename("not-a-package.txt") is None
-
-    assert _artifact_yanked_fields("broken release") == (1, "broken release")
-    assert _artifact_yanked_fields(True) == (1, None)
-    assert _artifact_yanked_fields(False) == (0, None)
-    assert _artifact_yanked_fields("") == (0, None)
-
-
-def test_prepare_project_detail_rows_uses_fallback_name_and_optional_keys() -> None:
-    prepared = _prepare_project_detail_rows(
+def test_project_detail_row_factory_uses_fallback_name_and_optional_keys() -> None:
+    factory = ProjectDetailRowFactory()
+    prepared = factory.prepare(
         {
             "raw_name": "Requests",
             "detail_last_serial": "4321",
@@ -66,10 +33,11 @@ def test_prepare_project_detail_rows_uses_fallback_name_and_optional_keys() -> N
         source="pypi_simple_project_detail",
     )
 
-    assert _detail_record_name({"raw_name": "Requests"}) == "Requests"
     assert prepared.normalized_name == "requests"
     assert prepared.detail_last_serial == 4321
     assert prepared.package_row[0] == "requests"
+    assert prepared.package_row[5] == "active"
+    assert prepared.package_row[6] == "maintained"
     assert prepared.source_row[1] == "pypi_simple_project_detail"
     assert prepared.snapshot_row[1] == "requests"
     assert prepared.version_rows == (
@@ -84,11 +52,43 @@ def test_prepare_project_detail_rows_uses_fallback_name_and_optional_keys() -> N
     assert prepared.artifact_rows[0][1] == "requests-2.0-py3-none-any.whl"
     assert prepared.artifact_rows[0][6] == ">=3.11"
     assert prepared.artifact_rows[0][8] == "needs rebuild"
-    assert (
-        _mapping_first_value(
-            {"first": None, "second": "value"},
-            "first",
-            "second",
-        )
-        == "value"
-    )
+
+
+def test_adoption_qualification_calculator_scores_and_states() -> None:
+    calculator = AdoptionQualificationCalculator()
+
+    assert calculator.score(
+        project_status="inactive",
+        version_count=1,
+        artifact_count=1,
+        wheel_count=1,
+        sdist_count=0,
+        yanked_artifact_count=0,
+    ) == (0, "excluded", "excluded: project_status=inactive")
+
+    assert calculator.score(
+        project_status=None,
+        version_count=0,
+        artifact_count=0,
+        wheel_count=0,
+        sdist_count=0,
+        yanked_artifact_count=0,
+    ) == (0, "discovered", "score=0; versions=0; artifacts=0")
+
+    assert calculator.score(
+        project_status="active",
+        version_count=2,
+        artifact_count=2,
+        wheel_count=1,
+        sdist_count=1,
+        yanked_artifact_count=0,
+    ) == (36, "qualified", "score=36; versions=2; artifacts=2; status=active")
+
+    assert calculator.score(
+        project_status="active",
+        version_count=2,
+        artifact_count=2,
+        wheel_count=1,
+        sdist_count=1,
+        yanked_artifact_count=2,
+    ) == (16, "excluded", "excluded: all_artifacts_yanked")

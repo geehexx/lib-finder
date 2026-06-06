@@ -159,5 +159,11 @@ keeps the future LangExtract/Ollama wiring at a separate boundary.
 - [ ] Add benchmark and testmon opt-in lanes if they improve signal without slowing the default hooks.
 - [ ] Update docs and hooks so the architectural simplification work stays visible in CI and local workflows.
 
+Status note: storage row preparation and adoption scoring now live in
+`src/lib_finder/storage/factories.py` as explicit OO boundaries. The next
+cleanup wave should continue pulling any remaining store-local helper clusters
+into similarly named factory/service modules instead of adding more private
+helpers inside `store.py`.
+
 Execution note: the first simplification tranche is tracked in
 `docs/superpowers/plans/2026-06-07-lib-finder-source-factory-and-eafp-simplification.md`.
