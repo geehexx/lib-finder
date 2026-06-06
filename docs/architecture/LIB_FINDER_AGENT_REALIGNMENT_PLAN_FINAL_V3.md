@@ -94,8 +94,9 @@ bootstrap path for new and legacy SQLite files, and the monolithic
 Status note: `lib_finder.pipeline` is now a package split into config,
 discovery, detail, and qualification modules while preserving the public import
 surface. `lib_finder.sources` now has canonical `constants.py`, `parsing.py`,
-`client.py`, and `models.py` modules, and the old wrapper modules have been
-removed. The typed record models live in `src/lib_finder/sources/models.py`.
+`status.py`, `client.py`, and `models.py` modules, and the old wrapper modules
+have been removed. The typed record models live in
+`src/lib_finder/sources/models.py`.
 
 ### Task 4: Haystack pipeline skeleton
 
@@ -156,3 +157,6 @@ keeps the future LangExtract/Ollama wiring at a separate boundary.
 - [ ] Keep local Codex/agent artifacts outside the repo boundary and documented as private-only workspace material.
 - [ ] Add benchmark and testmon opt-in lanes if they improve signal without slowing the default hooks.
 - [ ] Update docs and hooks so the architectural simplification work stays visible in CI and local workflows.
+
+Execution note: the first simplification tranche is tracked in
+`docs/superpowers/plans/2026-06-07-lib-finder-source-factory-and-eafp-simplification.md`.

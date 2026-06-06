@@ -12,6 +12,7 @@ from typing import Any
 from packaging.utils import canonicalize_name
 
 from .models import ProjectDetailRecord, ProjectDiscoveryRecord, ProjectFileRecord
+from .status import parse_project_status
 
 
 def _parse_last_serial(value: str | None) -> int | None:
@@ -229,64 +230,6 @@ def _parse_versions(payload: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(versions)
 
 
-def _parse_project_status_mapping(
-    value: Any,
-    *,
-    field_name: str,
-) -> tuple[str | None, str | None]:
-    if value is None:
-        return None, None
-    if not isinstance(value, Mapping):
-        raise TypeError(f"PyPI Simple payload field '{field_name}' must be a mapping")
-
-    status: str | None = None
-    reason: str | None = None
-
-    status_value = value.get("status")
-    if status_value is not None:
-        status = _require_string(status_value, field_name=f"{field_name}.status")
-
-    reason_value = value.get("reason")
-    if reason_value is not None:
-        reason = _require_string(reason_value, field_name=f"{field_name}.reason")
-
-    return status, reason
-
-
-def _parse_meta_project_status(
-    payload: Mapping[str, Any],
-) -> tuple[str | None, str | None]:
-    status, reason = _parse_project_status_mapping(
-        payload.get("project-status"),
-        field_name="meta.project-status",
-    )
-
-    meta_reason_value = payload.get("project-status-reason")
-    if reason is None and meta_reason_value is not None:
-        reason = _require_string(
-            meta_reason_value, field_name="meta.project-status-reason"
-        )
-
-    return status, reason
-
-
-def _parse_project_status(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
-    status, reason = _parse_project_status_mapping(
-        payload.get("project-status"),
-        field_name="project-status",
-    )
-
-    meta_value = payload.get("meta")
-    if isinstance(meta_value, Mapping):
-        meta_status, meta_reason = _parse_meta_project_status(meta_value)
-        if status is None:
-            status = meta_status
-        if reason is None:
-            reason = meta_reason
-
-    return status, reason
-
-
 def _parse_meta_api_version(payload: Mapping[str, Any]) -> str | None:
     meta_value = payload.get("meta")
     if not isinstance(meta_value, Mapping):
@@ -352,7 +295,7 @@ def build_project_detail_record(
         if project_last_serial is not None
         else _parse_serial_from_payload(payload)
     )
-    project_status, status_reason = _parse_project_status(payload)
+    project_status, status_reason = parse_project_status(payload)
 
     return ProjectDetailRecord(
         raw_name=raw_name,

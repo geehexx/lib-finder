@@ -143,10 +143,11 @@ share the same schema bootstrap path.
 
 The parser and storage record models are Pydantic-based. The source adapter is
 split across `src/lib_finder/sources/constants.py`,
-`src/lib_finder/sources/parsing.py`, `src/lib_finder/sources/client.py`, and
-`src/lib_finder/sources/models.py`. The old wrapper modules are gone;
-canonical source imports point directly at these submodules. The remaining work
-is the later Haystack/LangExtract pipeline batches.
+`src/lib_finder/sources/parsing.py`, `src/lib_finder/sources/status.py`,
+`src/lib_finder/sources/client.py`, and `src/lib_finder/sources/models.py`.
+The old wrapper modules are gone; canonical source imports point directly at
+these submodules. The remaining work is the later Haystack/LangExtract pipeline
+batches.
 
 SQLAlchemy ORM is intentionally out of scope for this pipeline.
 
