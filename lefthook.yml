@@ -1,0 +1,28 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: uv run rtk ruff format --check src tests
+    lint:
+      run: uv run rtk ruff check src tests
+    typecheck:
+      run: uv run rtk pyright
+    docs:
+      run: uv run rtk interrogate --quiet --fail-under 85 src/lib_finder
+    imports:
+      run: uv run rtk lint-imports
+    tests:
+      # Haystack skeleton tests are unit-marked and run through this lane.
+      run: uv run rtk pytest -q -m "unit or architecture" --timeout=60 --maxfail=1
+
+pre-push:
+  parallel: true
+  commands:
+    deterministic:
+      run: uv run rtk pytest -q -m "not live and not smoke and not architecture" -n auto --dist=loadfile --timeout=120 --maxfail=1
+    smoke-cli:
+      run: uv run rtk pytest -q tests/test_cli.py -m smoke --timeout=60 --maxfail=1
+    smoke-http:
+      run: uv run rtk pytest -q tests/test_pypi_http.py -n auto --dist=loadfile --timeout=60 --maxfail=1
+    smoke-pipeline:
+      run: uv run rtk pytest -q tests/test_pipeline.py --timeout=300 --maxfail=1

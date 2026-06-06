@@ -1,0 +1,23 @@
+[importlinter]
+root_package = lib_finder
+include_external_packages = True
+
+[importlinter:contract:lightweight-import-boundary-modules]
+name = Lightweight import boundary modules
+type = forbidden
+source_modules =
+    lib_finder
+    lib_finder.cli
+    lib_finder.pipeline
+    lib_finder.settings
+    lib_finder.storage
+    lib_finder.sources
+    lib_finder.sources.constants
+    lib_finder.sources.client
+    lib_finder.sources.parsing
+    lib_finder.sources.models
+forbidden_modules =
+    langextract
+    haystack
+    ollama
+as_packages = False

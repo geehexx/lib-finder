@@ -1,0 +1,101 @@
+[project]
+name = "lib-finder"
+version = "0.1.0"
+description = "Tools for collecting and caching package metadata from PyPI"
+readme = "README.md"
+authors = [
+    { name = "geehexx", email = "221785262+geehexx@users.noreply.github.com" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "aiohttp<3.14",
+    "haystack-ai>=2.29.0,<3.0.0",
+    "httpx>=0.28.1",
+    "ijson>=3.5.0",
+    "langextract>=1.5.0",
+    "packaging>=26.2",
+    "pydantic>=2.13.4",
+    "pydantic-settings>=2.14.1",
+    "python-dotenv>=1.2.2",
+    "rich>=15.0.0",
+    "sqlalchemy>=2.0.0",
+    "tqdm>=4.68.0",
+    "typer>=0.26.7",
+    "alembic>=1.14.0",
+]
+
+[project.scripts]
+lib-finder = "lib_finder.cli:main"
+
+[build-system]
+requires = ["uv_build>=0.11.2,<0.12.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "ipdb>=0.13.13",
+    "hypothesis>=6.0.0",
+    "interrogate>=1.7.0",
+    "import-linter>=2.7.0",
+    "pytest-cov>=6.2.0",
+    "pyright>=1.1.410",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.4.0",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "pytest-recording>=0.13.0",
+    "respx>=0.23.1",
+    "ruff>=0.15.16",
+]
+
+[tool.ruff.lint]
+extend-select = ["C90"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.interrogate]
+fail-under = 85
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = false
+ignore-nested-classes = true
+ignore-nested-functions = true
+ignore-overloaded-functions = true
+ignore-private = true
+ignore-property-decorators = false
+ignore-semiprivate = true
+ignore-setters = false
+ignore-module = false
+style = "sphinx"
+exclude = ["tests", "docs", ".venv", "build", "dist"]
+
+[tool.coverage.run]
+branch = true
+source = ["lib_finder"]
+
+[tool.coverage.report]
+fail_under = 85
+omit = ["tests/*", "docs/*", "src/lib_finder/storage/migrations/*"]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+timeout = 180
+filterwarnings = [
+    "ignore:unclosed database in <sqlite3.Connection object at:ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
+]
+markers = [
+    "architecture: architectural boundary and import-contract checks",
+    "benchmark: performance benchmarks run outside the normal gate",
+    "e2e: full end-to-end tests that cross multiple layers",
+    "integration: tests that touch real storage, recorded HTTP, or local services",
+    "live: tests that require live network access to external services",
+    "recorded: tests that replay recorded HTTP interactions",
+    "unit: fast deterministic tests with no external I/O",
+    "smoke: fast end-to-end smoke tests",
+    "property: property-based tests",
+    "slow: slower tests",
+    "timeout: per-test timeout controls from pytest-timeout",
+    "vcr: VCR-recorded HTTP tests",
+]
