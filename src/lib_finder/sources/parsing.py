@@ -83,6 +83,12 @@ def _require_nonempty_string(value: Any, *, field_name: str) -> str:
     return string_value
 
 
+def _optional_mapping(value: Any) -> Mapping[str, Any] | None:
+    if value is None or not isinstance(value, Mapping):
+        return None
+    return value
+
+
 def _parse_optional_serial(value: Any, *, field_name: str) -> int | None:
     if value is None:
         return None
@@ -98,18 +104,32 @@ def _parse_optional_serial(value: Any, *, field_name: str) -> int | None:
 
 
 def _parse_serial_from_payload(payload: Mapping[str, Any]) -> int | None:
-    serial = _parse_optional_serial(
-        payload.get("_last-serial"), field_name="_last-serial"
-    )
+    try:
+        serial = _parse_optional_serial(
+            payload["_last-serial"], field_name="_last-serial"
+        )
+    except KeyError:
+        serial = None
     if serial is not None:
         return serial
-    meta = payload.get("meta")
-    if isinstance(meta, Mapping):
+
+    try:
+        meta_value = payload["meta"]
+    except KeyError:
+        return None
+
+    meta = _optional_mapping(meta_value)
+    if meta is None:
+        return None
+
+    try:
         serial = _parse_optional_serial(
-            meta.get("_last-serial"), field_name="meta._last-serial"
+            meta["_last-serial"], field_name="meta._last-serial"
         )
-        if serial is not None:
-            return serial
+    except KeyError:
+        return None
+    if serial is not None:
+        return serial
     return None
 
 
@@ -169,7 +189,10 @@ def _parse_yanked(value: Any) -> bool | str | None:
 def _build_project_file_record(payload: Mapping[str, Any]) -> ProjectFileRecord:
     filename = _require_nonempty_string(payload.get("filename"), field_name="filename")
     url = _require_nonempty_string(payload.get("url"), field_name="url")
-    hashes_value = payload.get("hashes")
+    try:
+        hashes_value = payload["hashes"]
+    except KeyError as exc:
+        raise TypeError("PyPI Simple payload field 'hashes' must be a mapping") from exc
     if not isinstance(hashes_value, Mapping):
         raise TypeError("PyPI Simple payload field 'hashes' must be a mapping")
 
@@ -212,8 +235,9 @@ def _parse_int(value: Any, *, field_name: str) -> int:
 
 
 def _parse_versions(payload: Mapping[str, Any]) -> tuple[str, ...]:
-    versions_value = payload.get("versions")
-    if versions_value is None:
+    try:
+        versions_value = payload["versions"]
+    except KeyError:
         return ()
     if not isinstance(versions_value, list):
         raise TypeError("PyPI Simple payload field 'versions' must be a list")
@@ -228,11 +252,17 @@ def _parse_versions(payload: Mapping[str, Any]) -> tuple[str, ...]:
 
 
 def _parse_meta_api_version(payload: Mapping[str, Any]) -> str | None:
-    meta_value = payload.get("meta")
-    if not isinstance(meta_value, Mapping):
+    try:
+        meta_value = payload["meta"]
+    except KeyError:
         return None
-    api_version = meta_value.get("api-version")
-    if api_version is None:
+
+    meta_value = _optional_mapping(meta_value)
+    if meta_value is None:
+        return None
+    try:
+        api_version = meta_value["api-version"]
+    except KeyError:
         return None
     return _require_string(api_version, field_name="meta.api-version")
 
@@ -276,8 +306,9 @@ def build_project_detail_record(
 
 
 def _parse_files(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
-    files_value = payload.get("files")
-    if files_value is None:
+    try:
+        files_value = payload["files"]
+    except KeyError:
         return []
     if not isinstance(files_value, list):
         raise TypeError("PyPI Simple payload field 'files' must be a list")

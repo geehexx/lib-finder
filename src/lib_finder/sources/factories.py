@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass
 from typing import Any
 
 from packaging.utils import canonicalize_name
@@ -43,9 +42,10 @@ def _canonicalized_name(raw_name: str, *, field_name: str) -> str:
     return normalized_name
 
 
-@dataclass(slots=True)
 class PyPIRecordFactory:
     """Construct normalized record models from PyPI Simple payloads."""
+
+    __slots__ = ()
 
     def build_project_discovery_record(
         self,

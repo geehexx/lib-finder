@@ -99,6 +99,9 @@ Use timings to guide lane design and code changes instead of guessing.
 - if the pipeline lane slows down again, profile that file first before widening
   the hook or adding more mocking; the biggest regressions have come from
   unnecessary executor offloading around SQLite writes.
+- the broad coverage lane relies on the exact pytest-cov sqlite warning filter
+  string (`unclosed database in <sqlite3.Connection object at`) documented by
+  pytest-cov; keep that message text aligned with upstream if it changes.
 
 When refactoring parsing or construction code, keep the smallest possible
 unit/edge tests around the branch that is being flattened. That usually means:

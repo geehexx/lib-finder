@@ -67,6 +67,28 @@ class AdoptionRollupBatchResult(BaseModel):
     qualified_count: int
 
 
+class _SQLiteResultAdapter:
+    """Close SQLAlchemy results after the caller consumes them."""
+
+    def __init__(self, result) -> None:
+        self._result = result
+
+    def fetchone(self):
+        try:
+            return self._result.fetchone()
+        finally:
+            self._result.close()
+
+    def fetchall(self):
+        try:
+            return self._result.fetchall()
+        finally:
+            self._result.close()
+
+    def close(self) -> None:
+        self._result.close()
+
+
 class SQLiteConnectionAdapter:
     """Small compatibility wrapper over a SQLAlchemy connection."""
 
@@ -82,14 +104,19 @@ class SQLiteConnectionAdapter:
             result = self._connection.exec_driver_sql(statement)
         else:
             result = self._connection.exec_driver_sql(statement, params)
-        if statement_is_count_query:
+        if not result.returns_rows:
+            result.close()
             return result
-        return result.mappings()
+        if statement_is_count_query:
+            return _SQLiteResultAdapter(result)
+        return _SQLiteResultAdapter(result.mappings())
 
     def executemany(self, statement: str, params: Sequence[Any]):
         result = None
         for param in params:
             result = self._connection.exec_driver_sql(statement, param)
+            if not result.returns_rows:
+                result.close()
         return result
 
     def commit(self) -> None:
@@ -506,6 +533,7 @@ class SQLiteStore:
         self.path = path
         self.engine = engine
         self.connection = connection
+        self._closed = False
 
     @classmethod
     def open(cls, path: Path) -> "SQLiteStore":
@@ -538,8 +566,19 @@ class SQLiteStore:
     def close(self) -> None:
         """Close the underlying SQLite connection."""
 
+        if self._closed:
+            return
         self.connection.close()
         self.engine.dispose()
+        self._closed = True
+
+    def __del__(self) -> None:
+        if self._closed:
+            return
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def start_run(
         self,

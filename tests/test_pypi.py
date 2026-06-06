@@ -129,7 +129,7 @@ def test_build_project_detail_record_parses_simple_detail_schema() -> None:
 
 
 @pytest.mark.filterwarnings(
-    "ignore:unclosed database in <sqlite3.Connection:ResourceWarning"
+    "ignore:unclosed database in <sqlite3.Connection object at:ResourceWarning"
 )
 @pytest.mark.property
 @settings(max_examples=50, deadline=None, database=None)

@@ -22,15 +22,21 @@ def _parse_status_mapping(
     if not isinstance(value, Mapping):
         raise TypeError(f"PyPI Simple payload field '{field_name}' must be a mapping")
 
-    status: str | None = None
-    reason: str | None = None
+    status: str | None
+    reason: str | None
 
-    status_value = value.get("status")
-    if status_value is not None:
+    try:
+        status_value = value["status"]
+    except KeyError:
+        status = None
+    else:
         status = _require_string(status_value, field_name=f"{field_name}.status")
 
-    reason_value = value.get("reason")
-    if reason_value is not None:
+    try:
+        reason_value = value["reason"]
+    except KeyError:
+        reason = None
+    else:
         reason = _require_string(reason_value, field_name=f"{field_name}.reason")
 
     return status, reason
@@ -44,7 +50,11 @@ def _parse_meta_project_status(
         field_name="meta.project-status",
     )
 
-    meta_reason_value = payload.get("project-status-reason")
+    try:
+        meta_reason_value = payload["project-status-reason"]
+    except KeyError:
+        meta_reason_value = None
+
     if reason is None and meta_reason_value is not None:
         reason = _require_string(
             meta_reason_value, field_name="meta.project-status-reason"
@@ -56,12 +66,21 @@ def _parse_meta_project_status(
 def parse_project_status(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
     """Return the project status and reason from a PyPI detail payload."""
 
+    try:
+        status_value = payload["project-status"]
+    except KeyError:
+        status_value = None
+
     status, reason = _parse_status_mapping(
-        payload.get("project-status"),
+        status_value,
         field_name="project-status",
     )
 
-    meta_value = payload.get("meta")
+    try:
+        meta_value = payload["meta"]
+    except KeyError:
+        meta_value = None
+
     if isinstance(meta_value, Mapping):
         meta_status, meta_reason = _parse_meta_project_status(meta_value)
         if status is None:
