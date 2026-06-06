@@ -47,6 +47,10 @@ data/cache/
 *.db
 *.db-journal
 
+# Local agent workspace artifacts and private control-plane scratch space
+.agents/
+.codex/
+
 # Misc temporary files
 *.log
 *.tmp

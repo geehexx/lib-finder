@@ -229,18 +229,61 @@ def _parse_versions(payload: Mapping[str, Any]) -> tuple[str, ...]:
     return tuple(versions)
 
 
-def _parse_project_status(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
-    project_status_value = payload.get("project-status")
-    if project_status_value is None:
+def _parse_project_status_mapping(
+    value: Any,
+    *,
+    field_name: str,
+) -> tuple[str | None, str | None]:
+    if value is None:
         return None, None
-    if not isinstance(project_status_value, Mapping):
-        raise TypeError("PyPI Simple payload field 'project-status' must be a mapping")
-    status = project_status_value.get("status")
-    reason = project_status_value.get("reason")
-    if status is not None:
-        status = _require_string(status, field_name="project-status.status")
-    if reason is not None:
-        reason = _require_string(reason, field_name="project-status.reason")
+    if not isinstance(value, Mapping):
+        raise TypeError(f"PyPI Simple payload field '{field_name}' must be a mapping")
+
+    status: str | None = None
+    reason: str | None = None
+
+    status_value = value.get("status")
+    if status_value is not None:
+        status = _require_string(status_value, field_name=f"{field_name}.status")
+
+    reason_value = value.get("reason")
+    if reason_value is not None:
+        reason = _require_string(reason_value, field_name=f"{field_name}.reason")
+
+    return status, reason
+
+
+def _parse_meta_project_status(
+    payload: Mapping[str, Any],
+) -> tuple[str | None, str | None]:
+    status, reason = _parse_project_status_mapping(
+        payload.get("project-status"),
+        field_name="meta.project-status",
+    )
+
+    meta_reason_value = payload.get("project-status-reason")
+    if reason is None and meta_reason_value is not None:
+        reason = _require_string(
+            meta_reason_value, field_name="meta.project-status-reason"
+        )
+
+    return status, reason
+
+
+def _parse_project_status(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    status, reason = _parse_project_status_mapping(
+        payload.get("project-status"),
+        field_name="project-status",
+    )
+
+    meta_value = payload.get("meta")
+    if isinstance(meta_value, Mapping):
+        meta_status, meta_reason = _parse_meta_project_status(meta_value)
+        if status is None:
+            status = meta_status
+        if reason is None:
+            reason = meta_reason
+
     return status, reason
 
 

@@ -3,7 +3,10 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from lib_finder.pypi import fetch_project_detail_record, iter_root_project_records
+from lib_finder.sources.client import (
+    fetch_project_detail_record,
+    iter_root_project_records,
+)
 
 
 @pytest.fixture(scope="module")

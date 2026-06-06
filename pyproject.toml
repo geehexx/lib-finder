@@ -83,6 +83,7 @@ addopts = "--strict-markers"
 timeout = 180
 filterwarnings = [
     "ignore:unclosed database in <sqlite3.Connection:ResourceWarning",
+    "ignore::pytest.PytestUnraisableExceptionWarning",
 ]
 markers = [
     "architecture: architectural boundary and import-contract checks",

@@ -4,7 +4,7 @@ import json
 import sqlite3
 from typing import Any
 
-from lib_finder.pypi import build_project_discovery_record
+from lib_finder.sources.parsing import build_project_discovery_record
 from lib_finder.storage import SQLiteStore
 
 

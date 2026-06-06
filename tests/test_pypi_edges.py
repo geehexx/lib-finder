@@ -5,14 +5,16 @@ import json
 import httpx
 import pytest
 
-from lib_finder.pypi import (
+from lib_finder.sources.client import iter_root_project_records_from_response
+from lib_finder.sources.models import (
     ProjectFileRecord,
     ProjectDetailRecord,
     ProjectDiscoveryRecord,
     ProjectSelectionRecord,
+)
+from lib_finder.sources.parsing import (
     build_project_detail_record,
     build_project_discovery_record,
-    iter_root_project_records_from_response,
 )
 
 
@@ -47,6 +49,27 @@ def test_project_detail_record_defaults_optional_fields_and_properties() -> None
     assert record.meta_api_version is None
     assert record.versions == ()
     assert record.files == ()
+
+
+def test_project_detail_record_reads_project_status_from_meta_fallback() -> None:
+    record = build_project_detail_record(
+        {
+            "name": "requests",
+            "meta": {
+                "project-status": {
+                    "status": "active",
+                    "reason": "maintained upstream",
+                },
+                "project-status-reason": "meta fallback",
+            },
+        },
+        raw_name="Requests",
+        root_last_serial=99,
+        fetched_at="2026-06-06T00:00:00+00:00",
+    )
+
+    assert record.project_status == "active"
+    assert record.status_reason == "maintained upstream"
 
 
 def test_project_discovery_record_coerces_serials() -> None:

@@ -118,7 +118,7 @@ async def _consume_detail_records(
     return records_seen, records_written, project_last_serial
 
 
-async def run_detail_sync(config: SyncConfig) -> SyncResult:
+async def _run_detail_sync_impl(config: SyncConfig) -> SyncResult:
     """Synchronize project-detail pages for SQLite-selected packages."""
 
     store = SQLiteStore.open(config.db_path)
@@ -239,3 +239,9 @@ async def run_detail_sync(config: SyncConfig) -> SyncResult:
         if csv_file is not None:
             csv_file.close()
         store.close()
+
+
+def run_detail_sync(config: SyncConfig) -> SyncResult:
+    """Synchronize project-detail pages for SQLite-selected packages."""
+
+    return asyncio.run(_run_detail_sync_impl(config))

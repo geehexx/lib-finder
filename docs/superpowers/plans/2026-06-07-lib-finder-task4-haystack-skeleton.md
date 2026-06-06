@@ -6,6 +6,8 @@
 
 **Architecture:** Introduce Haystack as the orchestration layer for the next stage of the pipeline, but keep this tranche limited to deterministic component and pipeline scaffolding. The new modules should convert the existing typed source records into Haystack `Document` objects, expose stable factory functions for future pipeline wiring, and stay fully testable without any live service dependencies.
 
+**Status:** completed and retained as a historical tranche record. The implementation landed in commits `4692dec`, `83094fd`, and `85fbce0`.
+
 **Tech Stack:** Python 3.14, `haystack-ai`, Haystack `@component` APIs, Haystack `Document` and `Pipeline`, `pydantic`, `pytest`, `ruff`, `pyright`, `import-linter`, `lefthook`.
 
 ---
@@ -100,7 +102,7 @@ class PackageDocumentNormalizer:
 Run: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_haystack_components.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add pyproject.toml uv.lock src/lib_finder/pipeline/haystack_components.py src/lib_finder/pipeline/__init__.py tests/test_haystack_components.py
@@ -180,7 +182,7 @@ def build_detail_pipeline() -> Pipeline:
 Run: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_haystack_pipelines.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib_finder/pipeline/discovery_pipeline.py src/lib_finder/pipeline/detail_pipeline.py src/lib_finder/pipeline/document_pipeline.py src/lib_finder/pipeline/__init__.py tests/test_haystack_pipelines.py
@@ -214,7 +216,7 @@ Run:
 
 Expected: all commands pass with no errors.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md docs/testing/README.md lefthook.yml pyproject.toml

@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
+
 from ..storage import SQLiteStore
 from .config import QualificationConfig, QualificationResult
 
 
-async def run_qualification_sync(
+async def _run_qualification_sync_impl(
     config: QualificationConfig,
 ) -> QualificationResult:
     """Recompute adoption rollups from the data already stored in SQLite."""
@@ -16,6 +18,8 @@ async def run_qualification_sync(
     try:
         if config.package_names:
             target_names = tuple(config.package_names)
+            if config.record_limit is not None:
+                target_names = target_names[: config.record_limit]
         elif config.record_limit is not None:
             target_names = tuple(
                 selection.normalized_name
@@ -73,3 +77,11 @@ async def run_qualification_sync(
         raise
     finally:
         store.close()
+
+
+def run_qualification_sync(
+    config: QualificationConfig,
+) -> QualificationResult:
+    """Recompute adoption rollups from the data already stored in SQLite."""
+
+    return asyncio.run(_run_qualification_sync_impl(config))

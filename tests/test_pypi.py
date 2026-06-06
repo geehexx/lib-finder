@@ -8,11 +8,11 @@ import pytest
 from hypothesis import given, settings, strategies as st
 from packaging.utils import canonicalize_name
 
-from lib_finder.pypi import (
-    PYPI_SIMPLE_INDEX_URL,
-    build_project_discovery_record,
+from lib_finder.sources.constants import PYPI_SIMPLE_INDEX_URL
+from lib_finder.sources.client import iter_root_project_records_from_response
+from lib_finder.sources.parsing import (
     build_project_detail_record,
-    iter_root_project_records_from_response,
+    build_project_discovery_record,
 )
 
 

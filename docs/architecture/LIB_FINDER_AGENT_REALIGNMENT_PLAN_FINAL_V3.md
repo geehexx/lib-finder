@@ -56,7 +56,7 @@
 
 - [x] Reduce `src/lib_finder/__init__.py` to minimal metadata only.
 
-- [x] Add tests proving `import lib_finder`, `import lib_finder.storage`, and `import lib_finder.sources.pypi` do not import LangExtract/Haystack/Ollama.
+- [x] Add tests proving `import lib_finder`, `import lib_finder.storage`, and the canonical `lib_finder.sources` submodules do not import LangExtract/Haystack/Ollama.
 
 - [x] Replace the ad hoc import-boundary probe with `import-linter` contracts once the package boundaries are stable, and keep the probe only as a temporary smoke guard.
 
@@ -85,8 +85,7 @@ bootstrap path for new and legacy SQLite files, and the monolithic
 **Files:**
 - Create: `src/lib_finder/sources/`
 - Create: `src/lib_finder/pipeline/`
-- Delete: `src/lib_finder/pypi.py`
-- Delete: `src/lib_finder/pipeline.py`
+- Legacy wrapper modules were removed during this tranche.
 
 - [x] Move PyPI models/client/parser/normalizer into typed submodules.
 - [x] Introduce source records and stage input/output records.
@@ -95,10 +94,8 @@ bootstrap path for new and legacy SQLite files, and the monolithic
 Status note: `lib_finder.pipeline` is now a package split into config,
 discovery, detail, and qualification modules while preserving the public import
 surface. `lib_finder.sources` now has canonical `constants.py`, `parsing.py`,
-and `client.py` modules, with `lib_finder.sources.pypi` retained as the
-compatibility shim. The typed record models live in
-`src/lib_finder/sources/models.py`, and the root `pypi.py` wrapper forwards to
-the compatibility surface.
+`client.py`, and `models.py` modules, and the old wrapper modules have been
+removed. The typed record models live in `src/lib_finder/sources/models.py`.
 
 ### Task 4: Haystack pipeline skeleton
 
@@ -139,3 +136,23 @@ keeps the future LangExtract/Ollama wiring at a separate boundary.
 - [ ] Add FTS5/BM25 and hybrid retrieval.
 - [ ] Add golden fixtures and evaluation reports.
 - [ ] Add top-1,000 validation workflow before any full-index run.
+
+### Task 7: Simplify construction, helpers, and local agent boundaries
+
+**Files:**
+- Review: `src/lib_finder/sources/`
+- Review: `src/lib_finder/storage/`
+- Review: `src/lib_finder/pipeline/`
+- Review: `src/lib_finder/extraction/`
+- Modify: `.gitignore`
+- Modify: `docs/testing/README.md`
+- Modify: `README.md`
+- Modify: `RTK.md`
+
+- [ ] Inventory repeated object construction and private-helper clusters in the core modules.
+- [ ] Audit coercion-heavy code such as `src/lib_finder/sources/parsing.py` for EAFP-style simplification where try/except reduces branching and makes the failure mode clearer.
+- [ ] Promote repeated construction paths into explicit factory/service objects where that reduces coupling.
+- [ ] Keep private helper functions only where they are true implementation details; prefer narrower, named interfaces for shared creation.
+- [ ] Keep local Codex/agent artifacts outside the repo boundary and documented as private-only workspace material.
+- [ ] Add benchmark and testmon opt-in lanes if they improve signal without slowing the default hooks.
+- [ ] Update docs and hooks so the architectural simplification work stays visible in CI and local workflows.

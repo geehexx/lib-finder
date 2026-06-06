@@ -92,7 +92,7 @@ async def _consume_root_records(
     return records_seen, records_written, root_last_serial
 
 
-async def run_discovery_sync(config: SyncConfig) -> SyncResult:
+async def _run_discovery_sync_impl(config: SyncConfig) -> SyncResult:
     """Synchronize the PyPI Simple root index into SQLite."""
 
     store = SQLiteStore.open(config.db_path)
@@ -205,3 +205,9 @@ async def run_discovery_sync(config: SyncConfig) -> SyncResult:
         if csv_file is not None:
             csv_file.close()
         store.close()
+
+
+def run_discovery_sync(config: SyncConfig) -> SyncResult:
+    """Synchronize the PyPI Simple root index into SQLite."""
+
+    return asyncio.run(_run_discovery_sync_impl(config))
