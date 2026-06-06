@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-
 from .config import QualificationConfig, QualificationResult, SyncConfig, SyncResult
 from .detail import run_detail_sync
 from .discovery import run_discovery_sync
