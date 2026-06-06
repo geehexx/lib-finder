@@ -23,6 +23,7 @@ class ProjectDiscoveryRecord:
     raw_name: str
     normalized_name: str
     root_last_serial: int | None
+    project_last_serial: int | None
     fetched_at: str
     suspicion: dict[str, Any]
     raw_payload_json: str
@@ -35,6 +36,57 @@ class ProjectDiscoveryRecord:
     @property
     def record_type(self) -> str:
         return "project_discovery"
+
+    @property
+    def identity(self) -> str:
+        return self.normalized_name
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectSelectionRecord:
+    raw_name: str
+    normalized_name: str
+    root_last_serial: int | None
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectFileRecord:
+    filename: str
+    url: str
+    hashes: dict[str, str]
+    size: int
+    upload_time: str | None
+    requires_python: str | None
+    core_metadata: bool | dict[str, str] | None
+    dist_info_metadata: bool | dict[str, str] | None
+    provenance: str | None
+    yanked: bool | str | None
+
+
+@dataclass(slots=True, frozen=True)
+class ProjectDetailRecord:
+    raw_name: str
+    normalized_name: str
+    project_name: str
+    root_last_serial: int | None
+    project_last_serial: int | None
+    fetched_at: str
+    project_status: str | None
+    status_reason: str | None
+    meta_api_version: str | None
+    versions: tuple[str, ...]
+    files: tuple[ProjectFileRecord, ...]
+    suspicion: dict[str, Any]
+    raw_payload_json: str
+    payload_hash: str
+
+    @property
+    def source(self) -> str:
+        return "pypi_simple_project_detail"
+
+    @property
+    def record_type(self) -> str:
+        return "project_detail"
 
     @property
     def identity(self) -> str:
@@ -99,6 +151,174 @@ def _suspicion_features(raw_name: str, normalized_name: str) -> dict[str, Any]:
     }
 
 
+def _require_string(value: Any, *, field_name: str) -> str:
+    if not isinstance(value, str):
+        raise TypeError(f"PyPI Simple payload field '{field_name}' must be a string")
+    return value
+
+
+def _require_nonempty_string(value: Any, *, field_name: str) -> str:
+    string_value = _require_string(value, field_name=field_name)
+    if not string_value.strip():
+        raise ValueError(f"PyPI Simple payload field '{field_name}' must not be empty")
+    return string_value
+
+
+def _parse_optional_serial(value: Any, *, field_name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str):
+        serial = _parse_last_serial(value)
+        if serial is not None:
+            return serial
+    raise TypeError(f"PyPI Simple payload field '{field_name}' must be an integer serial")
+
+
+def _parse_serial_from_payload(payload: Mapping[str, Any]) -> int | None:
+    serial = _parse_optional_serial(payload.get("_last-serial"), field_name="_last-serial")
+    if serial is not None:
+        return serial
+    meta = payload.get("meta")
+    if isinstance(meta, Mapping):
+        serial = _parse_optional_serial(meta.get("_last-serial"), field_name="meta._last-serial")
+        if serial is not None:
+            return serial
+    return None
+
+
+def _normalize_string_mapping(
+    value: Mapping[str, Any],
+    *,
+    field_name: str,
+    lower_keys: bool = True,
+) -> dict[str, str]:
+    parsed: dict[str, str] = {}
+    for key, raw_value in value.items():
+        if not isinstance(key, str) or not key.strip():
+            raise TypeError(f"PyPI Simple payload field '{field_name}' must map string keys to strings")
+        string_value = _require_string(raw_value, field_name=f"{field_name}.{key}")
+        parsed[key.lower() if lower_keys else key] = string_value
+    return parsed
+
+
+def _parse_optional_string(value: Any, *, field_name: str) -> str | None:
+    if value is None:
+        return None
+    return _require_string(value, field_name=field_name)
+
+
+def _parse_optional_string_or_bool_or_mapping(
+    value: Any,
+    *,
+    field_name: str,
+) -> bool | dict[str, str] | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, Mapping):
+        return _normalize_string_mapping(value, field_name=field_name)
+    raise TypeError(
+        f"PyPI Simple payload field '{field_name}' must be a bool or mapping of strings"
+    )
+
+
+def _parse_yanked(value: Any) -> bool | str | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if not value:
+            raise ValueError("PyPI Simple payload field 'yanked' must not be empty when present")
+        return value
+    raise TypeError("PyPI Simple payload field 'yanked' must be a bool or string")
+
+
+def _build_project_file_record(payload: Mapping[str, Any]) -> ProjectFileRecord:
+    filename = _require_nonempty_string(payload.get("filename"), field_name="filename")
+    url = _require_nonempty_string(payload.get("url"), field_name="url")
+    hashes_value = payload.get("hashes")
+    if not isinstance(hashes_value, Mapping):
+        raise TypeError("PyPI Simple payload field 'hashes' must be a mapping")
+
+    core_metadata = _parse_optional_string_or_bool_or_mapping(
+        payload.get("core-metadata"),
+        field_name="core-metadata",
+    )
+    dist_info_metadata = _parse_optional_string_or_bool_or_mapping(
+        payload.get("dist-info-metadata"),
+        field_name="dist-info-metadata",
+    )
+    if core_metadata is None and dist_info_metadata is not None:
+        core_metadata = dist_info_metadata
+
+    return ProjectFileRecord(
+        filename=filename,
+        url=url,
+        hashes=_normalize_string_mapping(hashes_value, field_name="hashes"),
+        size=_parse_int(payload.get("size"), field_name="size"),
+        upload_time=_parse_optional_string(payload.get("upload-time"), field_name="upload-time"),
+        requires_python=_parse_optional_string(
+            payload.get("requires-python"),
+            field_name="requires-python",
+        ),
+        core_metadata=core_metadata,
+        dist_info_metadata=dist_info_metadata,
+        provenance=_parse_optional_string(payload.get("provenance"), field_name="provenance"),
+        yanked=_parse_yanked(payload.get("yanked")),
+    )
+
+
+def _parse_int(value: Any, *, field_name: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise TypeError(f"PyPI Simple payload field '{field_name}' must be an integer")
+    return value
+
+
+def _parse_versions(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    versions_value = payload.get("versions")
+    if versions_value is None:
+        return ()
+    if not isinstance(versions_value, list):
+        raise TypeError("PyPI Simple payload field 'versions' must be a list")
+    versions: list[str] = []
+    seen: set[str] = set()
+    for index, version in enumerate(versions_value):
+        string_version = _require_string(version, field_name=f"versions[{index}]")
+        if string_version not in seen:
+            seen.add(string_version)
+            versions.append(string_version)
+    return tuple(versions)
+
+
+def _parse_project_status(payload: Mapping[str, Any]) -> tuple[str | None, str | None]:
+    project_status_value = payload.get("project-status")
+    if project_status_value is None:
+        return None, None
+    if not isinstance(project_status_value, Mapping):
+        raise TypeError("PyPI Simple payload field 'project-status' must be a mapping")
+    status = project_status_value.get("status")
+    reason = project_status_value.get("reason")
+    if status is not None:
+        status = _require_string(status, field_name="project-status.status")
+    if reason is not None:
+        reason = _require_string(reason, field_name="project-status.reason")
+    return status, reason
+
+
+def _parse_meta_api_version(payload: Mapping[str, Any]) -> str | None:
+    meta_value = payload.get("meta")
+    if not isinstance(meta_value, Mapping):
+        return None
+    api_version = meta_value.get("api-version")
+    if api_version is None:
+        return None
+    return _require_string(api_version, field_name="meta.api-version")
+
+
 def build_project_discovery_record(
     payload: Mapping[str, Any],
     *,
@@ -117,10 +337,85 @@ def build_project_discovery_record(
         raw_name=raw_name,
         normalized_name=normalized_name,
         root_last_serial=root_last_serial,
+        project_last_serial=_parse_serial_from_payload(payload),
         fetched_at=fetched_at,
         suspicion=_suspicion_features(raw_name, normalized_name),
         raw_payload_json=raw_payload_json,
         payload_hash=payload_hash,
+    )
+
+
+def build_project_detail_record(
+    payload: Mapping[str, Any],
+    *,
+    raw_name: str,
+    root_last_serial: int | None,
+    fetched_at: str,
+    project_last_serial: int | None = None,
+) -> ProjectDetailRecord:
+    project_name = payload.get("name")
+    if not isinstance(project_name, str) or not project_name.strip():
+        raise ValueError("PyPI project detail payload is missing a valid name")
+
+    normalized_name = canonicalize_name(project_name)
+    if canonicalize_name(raw_name) != normalized_name:
+        raise ValueError("PyPI project detail payload name does not match the discovered project")
+
+    raw_payload_json = _canonical_payload_json(payload)
+    payload_hash = _payload_hash(raw_payload_json)
+    detail_project_last_serial = (
+        project_last_serial if project_last_serial is not None else _parse_serial_from_payload(payload)
+    )
+    project_status, status_reason = _parse_project_status(payload)
+
+    return ProjectDetailRecord(
+        raw_name=raw_name,
+        normalized_name=normalized_name,
+        project_name=project_name,
+        root_last_serial=root_last_serial,
+        project_last_serial=detail_project_last_serial,
+        fetched_at=fetched_at,
+        project_status=project_status,
+        status_reason=status_reason,
+        meta_api_version=_parse_meta_api_version(payload),
+        versions=_parse_versions(payload),
+        files=tuple(_build_project_file_record(file_payload) for file_payload in _parse_files(payload)),
+        suspicion=_suspicion_features(raw_name, normalized_name),
+        raw_payload_json=raw_payload_json,
+        payload_hash=payload_hash,
+    )
+
+
+def _parse_files(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
+    files_value = payload.get("files")
+    if files_value is None:
+        return []
+    if not isinstance(files_value, list):
+        raise TypeError("PyPI Simple payload field 'files' must be a list")
+    parsed_files: list[Mapping[str, Any]] = []
+    for index, file_payload in enumerate(files_value):
+        if not isinstance(file_payload, Mapping):
+            raise TypeError(f"PyPI Simple payload field 'files[{index}]' must be a mapping")
+        parsed_files.append(file_payload)
+    return parsed_files
+
+
+async def fetch_project_detail_record(
+    client: httpx.AsyncClient,
+    project: ProjectDiscoveryRecord | ProjectSelectionRecord,
+) -> ProjectDetailRecord:
+    response = await client.get(
+        f"{PYPI_SIMPLE_INDEX_URL}{project.normalized_name}/",
+        headers={"Accept": PYPI_SIMPLE_ACCEPT},
+        follow_redirects=True,
+    )
+    response.raise_for_status()
+    return build_project_detail_record(
+        response.json(),
+        raw_name=project.raw_name,
+        root_last_serial=project.root_last_serial,
+        fetched_at=_iso_now(),
+        project_last_serial=_parse_last_serial(response.headers.get("X-PyPI-Last-Serial")),
     )
 
 
