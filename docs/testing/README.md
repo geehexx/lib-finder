@@ -115,6 +115,10 @@ unit/edge tests around the branch that is being flattened. That usually means:
   stay focused on writes and transactions rather than data shaping.
 - `SQLiteStore.get_stage_checkpoint()` exposes the last durable stage checkpoint
   when you need to inspect restart state during a debugging session.
+- the detail and qualification runners resume from the last recorded
+  `normalized_name` checkpoint when no explicit package override is supplied;
+  discovery remains restart-safe through idempotent writes instead of stream
+  rewinding.
 
 ## RTK Policy
 

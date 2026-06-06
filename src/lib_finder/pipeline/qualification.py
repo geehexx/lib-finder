@@ -8,6 +8,22 @@ from ..storage import SQLiteStore
 from .config import QualificationConfig, QualificationResult
 
 
+def _checkpoint_after_normalized_name(
+    store: SQLiteStore,
+    stage: str,
+) -> str | None:
+    checkpoint = store.get_stage_checkpoint(stage)
+    if checkpoint is None:
+        return None
+    latest_normalized_name = checkpoint.get("latest_normalized_name")
+    if (
+        not isinstance(latest_normalized_name, str)
+        or not latest_normalized_name.strip()
+    ):
+        return None
+    return latest_normalized_name
+
+
 async def _run_qualification_sync_impl(
     config: QualificationConfig,
 ) -> QualificationResult:
@@ -20,16 +36,18 @@ async def _run_qualification_sync_impl(
             target_names = tuple(config.package_names)
             if config.record_limit is not None:
                 target_names = target_names[: config.record_limit]
-        elif config.record_limit is not None:
+        else:
             target_names = tuple(
                 selection.normalized_name
                 for selection in store.list_package_selections(
                     all_packages=True,
                     limit=config.record_limit,
+                    after_normalized_name=_checkpoint_after_normalized_name(
+                        store,
+                        "sqlite_adoption_rollups",
+                    ),
                 )
             )
-        else:
-            target_names = ()
 
         run_id = store.start_run(
             source="sqlite_adoption_rollups",

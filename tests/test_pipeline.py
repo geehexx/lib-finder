@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from typing import Any
 
@@ -339,3 +340,102 @@ def test_run_qualification_sync_honors_record_limit_for_explicit_names(
         ).fetchone()
         assert rollup_count_row is not None
         assert _scalar_value(rollup_count_row) == 1
+
+
+def test_run_qualification_sync_resumes_from_stage_checkpoint(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "lib-finder.sqlite3"
+    store = SQLiteStore.open(db_path)
+    discovery_run_id = store.start_run(
+        source="pypi_simple_root",
+        mode="discovery",
+        root_last_serial=111,
+        settings={"seed": True},
+    )
+    store.write_discovery_batch(
+        run_id=discovery_run_id,
+        records=tuple(
+            build_project_discovery_record(
+                {"name": name},
+                root_last_serial=111,
+                fetched_at="2026-06-06T00:00:00+00:00",
+            )
+            for name in ["Requests", "Flask", "urllib3"]
+        ),
+    )
+    store.write_project_detail_batch(
+        run_id=discovery_run_id,
+        records=(
+            {
+                "name": "requests",
+                "meta": {"_last-serial": 222, "api-version": "1.4"},
+                "project-status": {"status": "active", "reason": "maintained"},
+                "versions": ["2.31.0", "2.32.0"],
+                "files": [
+                    {
+                        "filename": "requests-2.31.0.tar.gz",
+                        "url": "https://files.pythonhosted.org/packages/example/requests-2.31.0.tar.gz",
+                        "hashes": {"sha256": "1111"},
+                        "size": 100,
+                        "upload-time": "2026-06-06T00:00:00Z",
+                        "yanked": False,
+                    },
+                    {
+                        "filename": "requests-2.32.0-py3-none-any.whl",
+                        "url": "https://files.pythonhosted.org/packages/example/requests-2.32.0-py3-none-any.whl",
+                        "hashes": {"sha256": "2222"},
+                        "size": 200,
+                        "upload-time": "2026-06-06T01:00:00Z",
+                        "yanked": False,
+                    },
+                ],
+            },
+        ),
+    )
+    store.record_checkpoint(
+        stage="sqlite_adoption_rollups",
+        checkpoint={
+            "mode": "qualification",
+            "latest_normalized_name": "flask",
+            "records_seen": 1,
+            "records_written": 1,
+            "qualified_count": 1,
+        },
+    )
+    store.close()
+
+    result = run_qualification_sync(QualificationConfig(db_path=db_path))
+
+    assert result.records_seen == 2
+    assert result.records_written == 2
+    assert result.qualified_count == 1
+
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+        rollup_rows = connection.execute(
+            """
+            SELECT normalized_name, qualification_state
+            FROM package_adoption_rollups
+            ORDER BY normalized_name
+            """
+        ).fetchall()
+        assert [_row_value(row, "normalized_name") for row in rollup_rows] == [
+            "requests",
+            "urllib3",
+        ]
+        assert [_row_value(row, "qualification_state") for row in rollup_rows] == [
+            "qualified",
+            "discovered",
+        ]
+        checkpoint = connection.execute(
+            "SELECT checkpoint_json FROM stage_checkpoints WHERE stage = ?",
+            ("sqlite_adoption_rollups",),
+        ).fetchone()
+        assert checkpoint is not None
+        assert (
+            json.loads(_row_value(checkpoint, "checkpoint_json"))[
+                "latest_normalized_name"
+            ]
+            == "urllib3"
+        )

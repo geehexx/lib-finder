@@ -247,6 +247,40 @@ def test_list_package_selections_defaults_to_unenriched_packages(tmp_path) -> No
     store.close()
 
 
+def test_list_package_selections_can_resume_after_checkpoint(tmp_path) -> None:
+    db_path = tmp_path / "lib-finder.sqlite3"
+    store = SQLiteStore.open(db_path)
+    run_id = store.start_run(
+        source="pypi_simple_root",
+        mode="discovery",
+        root_last_serial=101,
+        settings={},
+    )
+    store.write_discovery_batch(
+        run_id=run_id,
+        records=tuple(
+            build_project_discovery_record(
+                {"name": name},
+                root_last_serial=101,
+                fetched_at="2026-06-06T00:00:00+00:00",
+            )
+            for name in ["Flask", "Requests", "urllib3"]
+        ),
+    )
+
+    resumed_selections = store.list_package_selections(
+        all_packages=True,
+        after_normalized_name="flask",
+    )
+
+    assert [selection.normalized_name for selection in resumed_selections] == [
+        "requests",
+        "urllib3",
+    ]
+
+    store.close()
+
+
 def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
     tmp_path,
 ) -> None:

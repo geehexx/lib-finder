@@ -98,8 +98,9 @@ surface. `lib_finder.sources` now has canonical `constants.py`,
 modules, and the old wrapper modules have been removed. The typed record models
 live in `src/lib_finder/sources/models.py`. The stage runners now persist
 durable checkpoints through `stage_checkpoints`, `SQLiteStore` exposes
-`get_stage_checkpoint()`, and the pipelines rerun safely from the recorded
-state via idempotent writes rather than brittle stream seeking.
+`get_stage_checkpoint()`, and the DB-selected detail and qualification runners
+resume from the latest recorded `normalized_name` checkpoint. Discovery still
+relies on restart-safe idempotent writes rather than brittle stream seeking.
 
 ### Task 4: Haystack pipeline skeleton
 

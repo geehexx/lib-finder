@@ -18,6 +18,22 @@ from ..storage import SQLiteStore
 from .config import SyncConfig, SyncResult
 
 
+def _checkpoint_after_normalized_name(
+    store: SQLiteStore,
+    stage: str,
+) -> str | None:
+    checkpoint = store.get_stage_checkpoint(stage)
+    if checkpoint is None:
+        return None
+    latest_normalized_name = checkpoint.get("latest_normalized_name")
+    if (
+        not isinstance(latest_normalized_name, str)
+        or not latest_normalized_name.strip()
+    ):
+        return None
+    return latest_normalized_name
+
+
 async def _produce_detail_targets(
     queue: asyncio.Queue[ProjectSelectionRecord | None],
     targets: tuple[ProjectSelectionRecord, ...],
@@ -147,6 +163,14 @@ async def _run_detail_sync_impl(config: SyncConfig) -> SyncResult:
         package_names=config.package_names if config.package_names else None,
         all_packages=config.all_packages,
         limit=config.record_limit,
+        after_normalized_name=(
+            None
+            if config.package_names
+            else _checkpoint_after_normalized_name(
+                store,
+                "pypi_simple_project_detail",
+            )
+        ),
     )
     detail_concurrency = max(1, config.detail_concurrency)
     root_queue: asyncio.Queue[ProjectSelectionRecord | None] = asyncio.Queue(

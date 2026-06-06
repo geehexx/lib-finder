@@ -354,6 +354,7 @@ class SQLiteStore:
         package_names: Sequence[str] | None = None,
         all_packages: bool = False,
         limit: int | None = None,
+        after_normalized_name: str | None = None,
     ) -> tuple[ProjectSelectionRecord, ...]:
         """Return package targets for detail or rollup work."""
 
@@ -394,13 +395,19 @@ class SQLiteStore:
             FROM packages
         """
         params: list[Any] = []
+        filters: list[str] = []
         if not all_packages:
-            query += " WHERE project_last_serial IS NULL"
+            filters.append("project_last_serial IS NULL")
+        if after_normalized_name is not None:
+            filters.append("normalized_name > ?")
+            params.append(after_normalized_name)
+        if filters:
+            query += " WHERE " + " AND ".join(filters)
         query += " ORDER BY normalized_name"
         if limit is not None:
             query += " LIMIT ?"
             params.append(limit)
-        rows = self.connection.execute(query, params).fetchall()
+        rows = self.connection.execute(query, tuple(params)).fetchall()
         return tuple(
             ProjectSelectionRecord(
                 raw_name=_row_value(row, "raw_name"),
@@ -626,6 +633,7 @@ class SQLiteStore:
             """,
             (stage, _json_dump(checkpoint), _utc_now()),
         )
+        self.connection.commit()
 
     def write_project_detail_batch(
         self,
