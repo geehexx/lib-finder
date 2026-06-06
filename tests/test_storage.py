@@ -71,12 +71,8 @@ def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
     source_count = _scalar_value(source_count_row)
     assert source_count == 2
 
-    checkpoint = store.connection.execute(
-        "SELECT checkpoint_json FROM stage_checkpoints WHERE stage = ?",
-        ("pypi_simple_root",),
-    ).fetchone()
-    assert checkpoint is not None
-    checkpoint_json = json.loads(_row_value(checkpoint, "checkpoint_json"))
+    checkpoint_json = store.get_stage_checkpoint("pypi_simple_root")
+    assert checkpoint_json is not None
     assert checkpoint_json["latest_normalized_name"] == "numpy"
     assert checkpoint_json["root_last_serial"] == 987
 
@@ -544,6 +540,14 @@ def test_refresh_adoption_rollups_updates_package_state_and_is_idempotent(
     assert result.records_seen == 2
     assert result.records_written == 2
     assert result.qualified_count == 1
+
+    checkpoint = store.get_stage_checkpoint("sqlite_adoption_rollups")
+    assert checkpoint is not None
+    assert checkpoint["mode"] == "qualification"
+    assert checkpoint["latest_normalized_name"] == "requests"
+    assert checkpoint["records_seen"] == 2
+    assert checkpoint["records_written"] == 2
+    assert checkpoint["qualified_count"] == 1
 
     rollup_rows = store.connection.execute(
         """

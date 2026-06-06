@@ -113,6 +113,8 @@ unit/edge tests around the branch that is being flattened. That usually means:
 - the same rule now applies to storage row preparation in
   `src/lib_finder/storage/factories.py`, where the persistence layer should
   stay focused on writes and transactions rather than data shaping.
+- `SQLiteStore.get_stage_checkpoint()` exposes the last durable stage checkpoint
+  when you need to inspect restart state during a debugging session.
 
 ## RTK Policy
 

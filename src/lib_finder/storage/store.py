@@ -333,6 +333,21 @@ class SQLiteStore:
             _row_value(row, "root_last_serial"),
         )
 
+    def get_stage_checkpoint(self, stage: str) -> dict[str, Any] | None:
+        """Return the latest checkpoint payload for a stage, if present."""
+
+        row = self.connection.execute(
+            """
+            SELECT checkpoint_json
+            FROM stage_checkpoints
+            WHERE stage = ?
+            """,
+            (stage,),
+        ).fetchone()
+        if row is None:
+            return None
+        return json.loads(_row_value(row, "checkpoint_json"))
+
     def list_package_selections(
         self,
         *,
@@ -542,6 +557,16 @@ class SQLiteStore:
             WHERE normalized_name = ?
             """,
             package_updates,
+        )
+        self.record_checkpoint(
+            stage="sqlite_adoption_rollups",
+            checkpoint={
+                "mode": "qualification",
+                "latest_normalized_name": normalized_names[-1],
+                "records_seen": len(normalized_names),
+                "records_written": len(rows),
+                "qualified_count": qualified_count,
+            },
         )
         self.connection.commit()
         return AdoptionRollupBatchResult(
