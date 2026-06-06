@@ -9,10 +9,7 @@ from collections import Counter
 from collections.abc import Mapping
 from typing import Any
 
-from packaging.utils import canonicalize_name
-
 from .models import ProjectDetailRecord, ProjectDiscoveryRecord, ProjectFileRecord
-from .status import parse_project_status
 
 
 def _parse_last_serial(value: str | None) -> int | None:
@@ -248,23 +245,12 @@ def build_project_discovery_record(
 ) -> ProjectDiscoveryRecord:
     """Build a discovery record from a PyPI Simple root payload."""
 
-    raw_name = payload.get("name")
-    if not isinstance(raw_name, str) or not raw_name.strip():
-        raise ValueError("PyPI project entry is missing a valid name")
+    from .factories import DEFAULT_PYPI_RECORD_FACTORY
 
-    normalized_name = canonicalize_name(raw_name)
-    raw_payload_json = _canonical_payload_json(payload)
-    payload_hash = _payload_hash(raw_payload_json)
-
-    return ProjectDiscoveryRecord(
-        raw_name=raw_name,
-        normalized_name=normalized_name,
+    return DEFAULT_PYPI_RECORD_FACTORY.build_project_discovery_record(
+        payload,
         root_last_serial=root_last_serial,
-        project_last_serial=_parse_serial_from_payload(payload),
         fetched_at=fetched_at,
-        suspicion=_suspicion_features(raw_name, normalized_name),
-        raw_payload_json=raw_payload_json,
-        payload_hash=payload_hash,
     )
 
 
@@ -278,43 +264,14 @@ def build_project_detail_record(
 ) -> ProjectDetailRecord:
     """Build a detail record from a PyPI Simple project payload."""
 
-    project_name = payload.get("name")
-    if not isinstance(project_name, str) or not project_name.strip():
-        raise ValueError("PyPI project detail payload is missing a valid name")
+    from .factories import DEFAULT_PYPI_RECORD_FACTORY
 
-    normalized_name = canonicalize_name(project_name)
-    if canonicalize_name(raw_name) != normalized_name:
-        raise ValueError(
-            "PyPI project detail payload name does not match the discovered project"
-        )
-
-    raw_payload_json = _canonical_payload_json(payload)
-    payload_hash = _payload_hash(raw_payload_json)
-    detail_project_last_serial = (
-        project_last_serial
-        if project_last_serial is not None
-        else _parse_serial_from_payload(payload)
-    )
-    project_status, status_reason = parse_project_status(payload)
-
-    return ProjectDetailRecord(
+    return DEFAULT_PYPI_RECORD_FACTORY.build_project_detail_record(
+        payload,
         raw_name=raw_name,
-        normalized_name=normalized_name,
-        project_name=project_name,
         root_last_serial=root_last_serial,
-        project_last_serial=detail_project_last_serial,
         fetched_at=fetched_at,
-        project_status=project_status,
-        status_reason=status_reason,
-        meta_api_version=_parse_meta_api_version(payload),
-        versions=_parse_versions(payload),
-        files=tuple(
-            _build_project_file_record(file_payload)
-            for file_payload in _parse_files(payload)
-        ),
-        suspicion=_suspicion_features(raw_name, normalized_name),
-        raw_payload_json=raw_payload_json,
-        payload_hash=payload_hash,
+        project_last_serial=project_last_serial,
     )
 
 

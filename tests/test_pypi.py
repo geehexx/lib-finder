@@ -8,6 +8,7 @@ import pytest
 from hypothesis import given, settings, strategies as st
 from packaging.utils import canonicalize_name
 
+from lib_finder.sources.factories import PyPIRecordFactory
 from lib_finder.sources.constants import PYPI_SIMPLE_INDEX_URL
 from lib_finder.sources.client import iter_root_project_records_from_response
 from lib_finder.sources.parsing import (
@@ -18,6 +19,29 @@ from lib_finder.sources.parsing import (
 
 def test_build_project_discovery_record_normalizes_and_scores_name() -> None:
     record = build_project_discovery_record(
+        {"name": "Requests"},
+        root_last_serial=123,
+        fetched_at="2026-06-06T00:00:00+00:00",
+    )
+
+    expected_payload = json.dumps(
+        {"name": "Requests"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
+    assert record.raw_name == "Requests"
+    assert record.normalized_name == "requests"
+    assert record.root_last_serial == 123
+    assert record.suspicion["has_mixed_case"] is True
+    assert record.suspicion["starts_with_digit"] is False
+    assert record.suspicion["length"] == len("Requests")
+    assert (
+        record.payload_hash
+        == hashlib.sha256(expected_payload.encode("utf-8")).hexdigest()
+    )
+
+
+def test_factory_build_project_discovery_record_normalizes_and_scores_name() -> None:
+    factory = PyPIRecordFactory()
+    record = factory.build_project_discovery_record(
         {"name": "Requests"},
         root_last_serial=123,
         fetched_at="2026-06-06T00:00:00+00:00",

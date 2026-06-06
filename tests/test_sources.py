@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from lib_finder.sources import models as source_models
+from lib_finder.sources import factories as source_factories
 from lib_finder.sources import client as source_client
 from lib_finder.sources import constants as source_constants
 from lib_finder.sources import parsing as source_parsing
@@ -41,4 +42,10 @@ def test_sources_client_helpers_are_canonical() -> None:
     )
     assert source_client.fetch_project_detail_record.__module__ == (
         "lib_finder.sources.client"
+    )
+
+
+def test_sources_factories_are_canonical() -> None:
+    assert source_factories.PyPIRecordFactory.__module__ == (
+        "lib_finder.sources.factories"
     )

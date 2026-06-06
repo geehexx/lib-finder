@@ -5,6 +5,7 @@ import json
 import httpx
 import pytest
 
+from lib_finder.sources.factories import PyPIRecordFactory
 from lib_finder.sources.client import iter_root_project_records_from_response
 from lib_finder.sources.models import (
     ProjectFileRecord,
@@ -52,7 +53,8 @@ def test_project_detail_record_defaults_optional_fields_and_properties() -> None
 
 
 def test_project_detail_record_reads_project_status_from_meta_fallback() -> None:
-    record = build_project_detail_record(
+    factory = PyPIRecordFactory()
+    record = factory.build_project_detail_record(
         {
             "name": "requests",
             "meta": {
@@ -70,6 +72,25 @@ def test_project_detail_record_reads_project_status_from_meta_fallback() -> None
 
     assert record.project_status == "active"
     assert record.status_reason == "maintained upstream"
+
+
+def test_project_detail_record_factory_uses_canonical_names() -> None:
+    factory = PyPIRecordFactory()
+    record = factory.build_project_detail_record(
+        {
+            "name": "requests",
+            "meta": {"_last-serial": 2469},
+            "versions": ["2.31.0"],
+            "files": [],
+        },
+        raw_name="Requests",
+        root_last_serial=99,
+        fetched_at="2026-06-06T00:00:00+00:00",
+    )
+
+    assert record.normalized_name == "requests"
+    assert record.project_name == "requests"
+    assert record.project_last_serial == 2469
 
 
 def test_project_discovery_record_coerces_serials() -> None:
