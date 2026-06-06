@@ -154,5 +154,7 @@ runtime slice is intentionally thin:
 - LangExtract + local Ollama is the preferred long-term extraction path;
 - LlamaIndex/LlamaExtract is a possible future option, but not the default path;
 - the ingestion pipeline should continue to work without LLM infrastructure;
+- a deterministic Haystack skeleton now exists for package-document
+  normalization and pipeline wiring, but it does not make live model calls yet;
 - the live smoke test uses a small local Ollama model and can be redirected
   with `LIB_FINDER_EXTRACTION_MODEL_ID` and `LIB_FINDER_EXTRACTION_MODEL_URL`.

@@ -12,6 +12,7 @@ pre-commit:
     imports:
       run: uv run rtk lint-imports
     tests:
+      # Haystack skeleton tests are unit-marked and run through this lane.
       run: uv run rtk pytest -q -m "unit or architecture" --timeout=60 --maxfail=1
 
 pre-push:

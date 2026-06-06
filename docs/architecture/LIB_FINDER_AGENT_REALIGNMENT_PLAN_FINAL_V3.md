@@ -108,8 +108,13 @@ the compatibility surface.
 - Create: `src/lib_finder/pipeline/detail_pipeline.py`
 - Create: `src/lib_finder/pipeline/document_pipeline.py`
 
-- [ ] Implement Haystack components for normalization and document conversion.
-- [ ] Add fake/stub component tests before wiring any local model calls.
+- [x] Implement Haystack components for normalization and document conversion.
+- [x] Add fake/stub component tests before wiring any local model calls.
+
+Status note: the Haystack skeleton is now implemented as deterministic
+component and pipeline scaffolding in `src/lib_finder/pipeline/`. It converts
+package records into Haystack `Document` objects without live model calls and
+keeps the future LangExtract/Ollama wiring at a separate boundary.
 
 ### Task 5: LangExtract/Ollama grounded extraction
 

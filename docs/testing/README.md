@@ -17,6 +17,8 @@ not the source of truth anymore.
 - `live`: tests that require live external services and are gated by opt-in env vars.
 - `recorded` and `vcr`: replayed HTTP tests for stable external API behavior.
 - `property`: Hypothesis-based invariant tests.
+- `haystack`: deterministic Haystack skeleton checks; these currently run as
+  part of the `unit` lane rather than a separate hook lane.
 - `benchmark`: performance checks that should run separately from normal CI gates.
 - `architecture`: import boundary and module-contract checks.
 
@@ -68,6 +70,8 @@ The default acceleration strategy is xdist plus file-level batching:
   it is the slowest remaining test and does not benefit from xdist;
 - run `tests/test_pipeline.py` as its own serial smoke lane when the SQLite
   pipeline path is the bottleneck.
+- keep the Haystack skeleton tests in the fast unit lane because they are
+  deterministic component/pipeline checks with no live model calls.
 - keep `architecture` checks in the pre-commit lane until `import-linter`
   replaces the temporary probe; they do not need to run in the broad push lane
   once the import boundary contract is stable.
