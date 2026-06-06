@@ -1,0 +1,17 @@
+pre-commit:
+  parallel: true
+  commands:
+    format:
+      run: uv run ruff format --check src tests
+    lint:
+      run: uv run ruff check src tests
+    typecheck:
+      run: uv run pyright
+    tests:
+      run: uv run pytest -q -m "not live"
+
+pre-push:
+  parallel: true
+  commands:
+    smoke:
+      run: LIB_FINDER_LIVE=1 uv run pytest -q -m smoke

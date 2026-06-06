@@ -9,7 +9,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from packaging.utils import canonicalize_name, parse_sdist_filename, parse_wheel_filename
+from packaging.utils import (
+    canonicalize_name,
+    parse_sdist_filename,
+    parse_wheel_filename,
+)
 
 from .pypi import ProjectDiscoveryRecord, ProjectSelectionRecord
 
@@ -192,13 +196,17 @@ def _settings_json(settings: Mapping[str, Any] | dict[str, Any]) -> str:
     return _json_dump(settings)
 
 
-def _snapshot_id(normalized_name: str, payload_hash: str, detail_last_serial: int | None) -> str:
+def _snapshot_id(
+    normalized_name: str, payload_hash: str, detail_last_serial: int | None
+) -> str:
     digest = hashlib.sha256()
     digest.update(normalized_name.encode("utf-8"))
     digest.update(b"|")
     digest.update(payload_hash.encode("utf-8"))
     digest.update(b"|")
-    digest.update(("" if detail_last_serial is None else str(detail_last_serial)).encode("utf-8"))
+    digest.update(
+        ("" if detail_last_serial is None else str(detail_last_serial)).encode("utf-8")
+    )
     return digest.hexdigest()
 
 
@@ -392,7 +400,11 @@ class SQLiteStore:
         ).fetchone()
         if row is None:
             return 0, 0, None
-        return int(row["records_seen"]), int(row["records_written"]), row["root_last_serial"]
+        return (
+            int(row["records_seen"]),
+            int(row["records_written"]),
+            row["root_last_serial"],
+        )
 
     def list_package_selections(
         self,
@@ -488,7 +500,9 @@ class SQLiteStore:
         self.connection.commit()
         return failure_id
 
-    def record_checkpoint(self, *, stage: str, checkpoint: Mapping[str, Any] | dict[str, Any]) -> None:
+    def record_checkpoint(
+        self, *, stage: str, checkpoint: Mapping[str, Any] | dict[str, Any]
+    ) -> None:
         self.connection.execute(
             """
             INSERT INTO stage_checkpoints (stage, checkpoint_json, updated_at)
@@ -541,7 +555,9 @@ class SQLiteStore:
             detail_last_serial = _detail_last_serial(record)
             raw_payload_json = _json_dump(record)
             payload_hash = hashlib.sha256(raw_payload_json.encode("utf-8")).hexdigest()
-            snapshot_id = _snapshot_id(normalized_name, payload_hash, detail_last_serial)
+            snapshot_id = _snapshot_id(
+                normalized_name, payload_hash, detail_last_serial
+            )
             latest_normalized_name = normalized_name
 
             package_rows.append(
@@ -591,7 +607,9 @@ class SQLiteStore:
             )
 
             versions = record.get("versions", [])
-            if isinstance(versions, Sequence) and not isinstance(versions, (str, bytes)):
+            if isinstance(versions, Sequence) and not isinstance(
+                versions, (str, bytes)
+            ):
                 for version in versions:
                     if not isinstance(version, str) or not version.strip():
                         continue
@@ -609,16 +627,24 @@ class SQLiteStore:
             if isinstance(files, Sequence) and not isinstance(files, (str, bytes)):
                 for file_entry in files:
                     if not isinstance(file_entry, Mapping):
-                        raise TypeError("Project detail artifact entry must be a mapping")
+                        raise TypeError(
+                            "Project detail artifact entry must be a mapping"
+                        )
                     filename = file_entry.get("filename")
                     url = file_entry.get("url")
                     if not isinstance(filename, str) or not filename.strip():
-                        raise ValueError("Project detail artifact is missing a valid filename")
+                        raise ValueError(
+                            "Project detail artifact is missing a valid filename"
+                        )
                     if not isinstance(url, str) or not url.strip():
-                        raise ValueError("Project detail artifact is missing a valid url")
+                        raise ValueError(
+                            "Project detail artifact is missing a valid url"
+                        )
 
                     version = _artifact_version_from_filename(filename)
-                    yanked, yanked_reason = _artifact_yanked_fields(file_entry.get("yanked"))
+                    yanked, yanked_reason = _artifact_yanked_fields(
+                        file_entry.get("yanked")
+                    )
                     hashes = file_entry.get("hashes", {})
                     core_metadata = file_entry.get("core-metadata")
                     if core_metadata is None:
@@ -753,8 +779,12 @@ class SQLiteStore:
                 checkpoint={
                     "run_id": run_id,
                     "project_last_serial": project_last_serial,
-                    "records_seen": progress_row["records_seen"] if progress_row is not None else record_count,
-                    "records_written": progress_row["records_written"] if progress_row is not None else record_count,
+                    "records_seen": progress_row["records_seen"]
+                    if progress_row is not None
+                    else record_count,
+                    "records_written": progress_row["records_written"]
+                    if progress_row is not None
+                    else record_count,
                     "latest_normalized_name": latest_normalized_name,
                     "mode": mode,
                 },
@@ -775,7 +805,9 @@ class SQLiteStore:
         mode: str = "discovery",
     ) -> DiscoveryBatchResult:
         if not records:
-            return DiscoveryBatchResult(records_seen=0, records_written=0, root_last_serial=None)
+            return DiscoveryBatchResult(
+                records_seen=0, records_written=0, root_last_serial=None
+            )
 
         now = _utc_now()
         record_count = len(records)
@@ -856,9 +888,15 @@ class SQLiteStore:
                 stage="pypi_simple_root",
                 checkpoint={
                     "run_id": run_id,
-                    "root_last_serial": progress_row["root_last_serial"] if progress_row is not None else root_last_serial,
-                    "records_seen": progress_row["records_seen"] if progress_row is not None else record_count,
-                    "records_written": progress_row["records_written"] if progress_row is not None else record_count,
+                    "root_last_serial": progress_row["root_last_serial"]
+                    if progress_row is not None
+                    else root_last_serial,
+                    "records_seen": progress_row["records_seen"]
+                    if progress_row is not None
+                    else record_count,
+                    "records_written": progress_row["records_written"]
+                    if progress_row is not None
+                    else record_count,
                     "latest_normalized_name": records[-1].normalized_name,
                 },
             )

@@ -15,12 +15,17 @@ from lib_finder.storage import SQLiteStore
 
 @pytest.mark.parametrize("csv_export", [None, "export.csv"])
 @respx.mock
-def test_run_discovery_sync_writes_sqlite_and_optional_csv(tmp_path, csv_export) -> None:
+def test_run_discovery_sync_writes_sqlite_and_optional_csv(
+    tmp_path, csv_export
+) -> None:
     project_names = ["Requests", "numpy", "pandas"]
     root_payload = json.dumps(
         {
             "meta": {"_last-serial": 2468},
-            "projects": [{"name": name, "_last-serial": index + 10} for index, name in enumerate(project_names)],
+            "projects": [
+                {"name": name, "_last-serial": index + 10}
+                for index, name in enumerate(project_names)
+            ],
         },
         separators=(",", ":"),
     ).encode("utf-8")
@@ -36,15 +41,15 @@ def test_run_discovery_sync_writes_sqlite_and_optional_csv(tmp_path, csv_export)
     csv_path = None if csv_export is None else tmp_path / csv_export
     result = asyncio.run(
         run_discovery_sync(
-        SyncConfig(
-            db_path=db_path,
-            csv_export_path=csv_path,
-            queue_size=2,
-            batch_size=2,
-            request_timeout=5.0,
-            read_timeout=5.0,
-            record_limit=None,
-        )
+            SyncConfig(
+                db_path=db_path,
+                csv_export_path=csv_path,
+                queue_size=2,
+                batch_size=2,
+                request_timeout=5.0,
+                read_timeout=5.0,
+                record_limit=None,
+            )
         )
     )
 
@@ -66,13 +71,22 @@ def test_run_discovery_sync_writes_sqlite_and_optional_csv(tmp_path, csv_export)
         packages = connection.execute(
             "SELECT normalized_name, raw_name FROM packages ORDER BY normalized_name"
         ).fetchall()
-        assert [row["normalized_name"] for row in packages] == ["numpy", "pandas", "requests"]
-        source_count = connection.execute("SELECT COUNT(*) FROM source_records").fetchone()[0]
+        assert [row["normalized_name"] for row in packages] == [
+            "numpy",
+            "pandas",
+            "requests",
+        ]
+        source_count = connection.execute(
+            "SELECT COUNT(*) FROM source_records"
+        ).fetchone()[0]
         assert source_count == 3
 
     if csv_path is not None:
         csv_text = csv_path.read_text(encoding="utf-8").splitlines()
-        assert csv_text[0] == "raw_name,normalized_name,root_last_serial,fetched_at,payload_hash,suspicion_json"
+        assert (
+            csv_text[0]
+            == "raw_name,normalized_name,root_last_serial,fetched_at,payload_hash,suspicion_json"
+        )
         assert len(csv_text) == 4
 
 
@@ -139,7 +153,9 @@ def test_run_sync_selects_packages_from_sqlite_and_fetches_details(tmp_path) -> 
 
     for name in project_names:
         normalized = name.lower()
-        respx.get(f"https://pypi.org/simple/{normalized}/").mock(side_effect=make_detail_response)
+        respx.get(f"https://pypi.org/simple/{normalized}/").mock(
+            side_effect=make_detail_response
+        )
 
     result = run_sync(
         SyncConfig(
@@ -166,7 +182,12 @@ def test_run_sync_selects_packages_from_sqlite_and_fetches_details(tmp_path) -> 
             ORDER BY normalized_name
             """
         ).fetchall()
-        assert [row["normalized_name"] for row in package_rows] == ["flask", "numpy", "pandas", "requests"]
+        assert [row["normalized_name"] for row in package_rows] == [
+            "flask",
+            "numpy",
+            "pandas",
+            "requests",
+        ]
         assert all(row["project_last_serial"] is not None for row in package_rows)
 
         detail_source_count = connection.execute(
@@ -174,9 +195,15 @@ def test_run_sync_selects_packages_from_sqlite_and_fetches_details(tmp_path) -> 
             ("pypi_simple_project_detail",),
         ).fetchone()[0]
         assert detail_source_count == 4
-        snapshot_count = connection.execute("SELECT COUNT(*) FROM project_detail_snapshots").fetchone()[0]
-        artifact_count = connection.execute("SELECT COUNT(*) FROM project_artifacts").fetchone()[0]
-        version_count = connection.execute("SELECT COUNT(*) FROM project_versions").fetchone()[0]
+        snapshot_count = connection.execute(
+            "SELECT COUNT(*) FROM project_detail_snapshots"
+        ).fetchone()[0]
+        artifact_count = connection.execute(
+            "SELECT COUNT(*) FROM project_artifacts"
+        ).fetchone()[0]
+        version_count = connection.execute(
+            "SELECT COUNT(*) FROM project_versions"
+        ).fetchone()[0]
         assert snapshot_count == 4
         assert artifact_count == 4
         assert version_count == 4

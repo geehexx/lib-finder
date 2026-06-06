@@ -44,7 +44,9 @@ class SyncConfig:
     def as_settings(self) -> dict[str, Any]:
         return {
             "db_path": str(self.db_path),
-            "csv_export_path": None if self.csv_export_path is None else str(self.csv_export_path),
+            "csv_export_path": None
+            if self.csv_export_path is None
+            else str(self.csv_export_path),
             "queue_size": self.queue_size,
             "batch_size": self.batch_size,
             "request_timeout": self.request_timeout,
@@ -77,7 +79,11 @@ async def _produce_root_records(
     async for record in iter_root_project_records(client):
         await queue.put(record)
         seen += 1
-        root_last_serial = record.root_last_serial if record.root_last_serial is not None else root_last_serial
+        root_last_serial = (
+            record.root_last_serial
+            if record.root_last_serial is not None
+            else root_last_serial
+        )
         if record_limit is not None and seen >= record_limit:
             break
     await queue.put(None)
@@ -108,7 +114,11 @@ async def _consume_root_records(
         )
         records_seen += result.records_seen
         records_written += result.records_written
-        root_last_serial = result.root_last_serial if result.root_last_serial is not None else root_last_serial
+        root_last_serial = (
+            result.root_last_serial
+            if result.root_last_serial is not None
+            else root_last_serial
+        )
 
         if csv_writer is not None:
             for record in batch:
@@ -119,7 +129,9 @@ async def _consume_root_records(
                         record.root_last_serial,
                         record.fetched_at,
                         record.payload_hash,
-                        json.dumps(record.suspicion, sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            record.suspicion, sort_keys=True, separators=(",", ":")
+                        ),
                     ]
                 )
         batch = []
@@ -147,7 +159,11 @@ async def _produce_detail_targets(
     for target in targets:
         await queue.put(target)
         seen += 1
-        root_last_serial = target.root_last_serial if target.root_last_serial is not None else root_last_serial
+        root_last_serial = (
+            target.root_last_serial
+            if target.root_last_serial is not None
+            else root_last_serial
+        )
         if record_limit is not None and seen >= record_limit:
             break
     for _ in range(worker_count):
@@ -197,7 +213,9 @@ async def _consume_detail_records(
         records_seen += result.records_seen
         records_written += result.records_written
         project_last_serial = (
-            result.project_last_serial if result.project_last_serial is not None else project_last_serial
+            result.project_last_serial
+            if result.project_last_serial is not None
+            else project_last_serial
         )
 
         if csv_writer is not None:
@@ -209,7 +227,9 @@ async def _consume_detail_records(
                         record.root_last_serial,
                         record.fetched_at,
                         record.payload_hash,
-                        json.dumps(record.suspicion, sort_keys=True, separators=(",", ":")),
+                        json.dumps(
+                            record.suspicion, sort_keys=True, separators=(",", ":")
+                        ),
                     ]
                 )
         batch = []
@@ -250,7 +270,9 @@ async def run_discovery_sync(config: SyncConfig) -> SyncResult:
             ]
         )
 
-    queue: asyncio.Queue[ProjectDiscoveryRecord | None] = asyncio.Queue(maxsize=config.queue_size)
+    queue: asyncio.Queue[ProjectDiscoveryRecord | None] = asyncio.Queue(
+        maxsize=config.queue_size
+    )
     timeout = httpx.Timeout(config.request_timeout, read=config.read_timeout)
 
     try:
@@ -283,8 +305,14 @@ async def run_discovery_sync(config: SyncConfig) -> SyncResult:
                     )
                 )
             root_last_serial = producer_task.result()
-            records_seen, records_written, consumer_root_last_serial = consumer_task.result()
-            root_last_serial = consumer_root_last_serial if consumer_root_last_serial is not None else root_last_serial
+            records_seen, records_written, consumer_root_last_serial = (
+                consumer_task.result()
+            )
+            root_last_serial = (
+                consumer_root_last_serial
+                if consumer_root_last_serial is not None
+                else root_last_serial
+            )
         store.finish_run(
             run_id=run_id,
             status="completed",
@@ -302,7 +330,9 @@ async def run_discovery_sync(config: SyncConfig) -> SyncResult:
         )
     except Exception as exc:
         if run_id is not None:
-            current_seen, current_written, current_root_last_serial = store.get_run_progress(run_id)
+            current_seen, current_written, current_root_last_serial = (
+                store.get_run_progress(run_id)
+            )
             store.record_failure(
                 run_id=run_id,
                 stage="pypi_simple_root",
@@ -313,9 +343,13 @@ async def run_discovery_sync(config: SyncConfig) -> SyncResult:
             store.finish_run(
                 run_id=run_id,
                 status="failed",
-                root_last_serial=current_root_last_serial if current_root_last_serial is not None else root_last_serial,
+                root_last_serial=current_root_last_serial
+                if current_root_last_serial is not None
+                else root_last_serial,
                 records_seen=current_seen if current_seen is not None else records_seen,
-                records_written=current_written if current_written is not None else records_written,
+                records_written=current_written
+                if current_written is not None
+                else records_written,
                 error_count=1,
             )
         raise
@@ -354,8 +388,12 @@ async def run_detail_sync(config: SyncConfig) -> SyncResult:
         limit=config.record_limit,
     )
     detail_concurrency = max(1, config.detail_concurrency)
-    root_queue: asyncio.Queue[ProjectSelectionRecord | None] = asyncio.Queue(maxsize=config.queue_size)
-    detail_queue: asyncio.Queue[ProjectDetailRecord | None] = asyncio.Queue(maxsize=config.queue_size)
+    root_queue: asyncio.Queue[ProjectSelectionRecord | None] = asyncio.Queue(
+        maxsize=config.queue_size
+    )
+    detail_queue: asyncio.Queue[ProjectDetailRecord | None] = asyncio.Queue(
+        maxsize=config.queue_size
+    )
     timeout = httpx.Timeout(config.request_timeout, read=config.read_timeout)
 
     try:
@@ -415,7 +453,9 @@ async def run_detail_sync(config: SyncConfig) -> SyncResult:
         )
     except Exception as exc:
         if run_id is not None:
-            current_seen, current_written, current_root_last_serial = store.get_run_progress(run_id)
+            current_seen, current_written, current_root_last_serial = (
+                store.get_run_progress(run_id)
+            )
             store.record_failure(
                 run_id=run_id,
                 stage="pypi_simple_project_detail",
@@ -428,7 +468,9 @@ async def run_detail_sync(config: SyncConfig) -> SyncResult:
                 status="failed",
                 root_last_serial=current_root_last_serial,
                 records_seen=current_seen if current_seen is not None else records_seen,
-                records_written=current_written if current_written is not None else records_written,
+                records_written=current_written
+                if current_written is not None
+                else records_written,
                 error_count=1,
             )
         raise

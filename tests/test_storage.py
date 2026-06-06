@@ -42,7 +42,9 @@ def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
     assert package_rows[1]["root_last_serial"] == 987
     assert json.loads(package_rows[1]["suspicion_json"])["has_mixed_case"] is True
 
-    source_count = store.connection.execute("SELECT COUNT(*) FROM source_records").fetchone()[0]
+    source_count = store.connection.execute(
+        "SELECT COUNT(*) FROM source_records"
+    ).fetchone()[0]
     assert source_count == 2
 
     checkpoint = store.connection.execute(
@@ -93,7 +95,9 @@ def test_write_discovery_batch_is_idempotent_for_source_records(tmp_path) -> Non
     store.write_discovery_batch(run_id=run_id, records=(record,))
     store.write_discovery_batch(run_id=run_id, records=(record,))
 
-    source_count = store.connection.execute("SELECT COUNT(*) FROM source_records").fetchone()[0]
+    source_count = store.connection.execute(
+        "SELECT COUNT(*) FROM source_records"
+    ).fetchone()[0]
     assert source_count == 1
     run_row = store.connection.execute(
         "SELECT records_seen, records_written FROM index_runs WHERE id = ?",
@@ -142,16 +146,26 @@ def test_list_package_selections_defaults_to_unenriched_packages(tmp_path) -> No
     assert [selection.normalized_name for selection in default_selections] == ["flask"]
 
     all_selections = store.list_package_selections(all_packages=True)
-    assert [selection.normalized_name for selection in all_selections] == ["flask", "requests"]
+    assert [selection.normalized_name for selection in all_selections] == [
+        "flask",
+        "requests",
+    ]
 
-    explicit_selections = store.list_package_selections(package_names=["Requests", "Unknown"])
-    assert [selection.normalized_name for selection in explicit_selections] == ["requests", "unknown"]
+    explicit_selections = store.list_package_selections(
+        package_names=["Requests", "Unknown"]
+    )
+    assert [selection.normalized_name for selection in explicit_selections] == [
+        "requests",
+        "unknown",
+    ]
     assert explicit_selections[1].root_last_serial is None
 
     store.close()
 
 
-def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(tmp_path) -> None:
+def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
+    tmp_path,
+) -> None:
     db_path = tmp_path / "lib-finder.sqlite3"
     store = SQLiteStore.open(db_path)
 
@@ -239,7 +253,10 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(tm
     assert snapshot_row["detail_last_serial"] == 4321
     assert snapshot_row["project_status"] == "active"
     assert snapshot_row["status_reason"] == "maintained"
-    assert json.loads(snapshot_row["raw_payload_json"])["versions"] == ["2.31.0", "2.32.0"]
+    assert json.loads(snapshot_row["raw_payload_json"])["versions"] == [
+        "2.31.0",
+        "2.32.0",
+    ]
 
     version_rows = store.connection.execute(
         """

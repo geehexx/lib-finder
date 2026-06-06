@@ -72,19 +72,29 @@ def _main(
     ] = False,
     queue_size: Annotated[
         int,
-        typer.Option("--queue-size", min=1, help="Maximum buffered records between stages."),
+        typer.Option(
+            "--queue-size", min=1, help="Maximum buffered records between stages."
+        ),
     ] = DEFAULT_QUEUE_SIZE,
     batch_size: Annotated[
         int,
-        typer.Option("--batch-size", min=1, help="Number of records written per SQLite batch."),
+        typer.Option(
+            "--batch-size", min=1, help="Number of records written per SQLite batch."
+        ),
     ] = DEFAULT_BATCH_SIZE,
     request_timeout: Annotated[
         float,
-        typer.Option("--request-timeout", min=0.1, help="Default HTTPX request timeout in seconds."),
+        typer.Option(
+            "--request-timeout",
+            min=0.1,
+            help="Default HTTPX request timeout in seconds.",
+        ),
     ] = DEFAULT_REQUEST_TIMEOUT,
     read_timeout: Annotated[
         float,
-        typer.Option("--read-timeout", min=0.1, help="Streaming read timeout in seconds."),
+        typer.Option(
+            "--read-timeout", min=0.1, help="Streaming read timeout in seconds."
+        ),
     ] = DEFAULT_READ_TIMEOUT,
     detail_concurrency: Annotated[
         int,
@@ -151,19 +161,29 @@ def discover(
     ] = None,
     queue_size: Annotated[
         int,
-        typer.Option("--queue-size", min=1, help="Maximum buffered records between stages."),
+        typer.Option(
+            "--queue-size", min=1, help="Maximum buffered records between stages."
+        ),
     ] = DEFAULT_QUEUE_SIZE,
     batch_size: Annotated[
         int,
-        typer.Option("--batch-size", min=1, help="Number of records written per SQLite batch."),
+        typer.Option(
+            "--batch-size", min=1, help="Number of records written per SQLite batch."
+        ),
     ] = DEFAULT_BATCH_SIZE,
     request_timeout: Annotated[
         float,
-        typer.Option("--request-timeout", min=0.1, help="Default HTTPX request timeout in seconds."),
+        typer.Option(
+            "--request-timeout",
+            min=0.1,
+            help="Default HTTPX request timeout in seconds.",
+        ),
     ] = DEFAULT_REQUEST_TIMEOUT,
     read_timeout: Annotated[
         float,
-        typer.Option("--read-timeout", min=0.1, help="Streaming read timeout in seconds."),
+        typer.Option(
+            "--read-timeout", min=0.1, help="Streaming read timeout in seconds."
+        ),
     ] = DEFAULT_READ_TIMEOUT,
     user_agent: Annotated[
         str,

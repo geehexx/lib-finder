@@ -5,13 +5,13 @@ import json
 
 import httpx
 import pytest
-import respx
+from hypothesis import given, settings, strategies as st
+from packaging.utils import canonicalize_name
 
 from lib_finder.pypi import (
     PYPI_SIMPLE_INDEX_URL,
     build_project_discovery_record,
     build_project_detail_record,
-    iter_root_project_records,
     iter_root_project_records_from_response,
 )
 
@@ -23,14 +23,19 @@ def test_build_project_discovery_record_normalizes_and_scores_name() -> None:
         fetched_at="2026-06-06T00:00:00+00:00",
     )
 
-    expected_payload = json.dumps({"name": "Requests"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    expected_payload = json.dumps(
+        {"name": "Requests"}, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
     assert record.raw_name == "Requests"
     assert record.normalized_name == "requests"
     assert record.root_last_serial == 123
     assert record.suspicion["has_mixed_case"] is True
     assert record.suspicion["starts_with_digit"] is False
     assert record.suspicion["length"] == len("Requests")
-    assert record.payload_hash == hashlib.sha256(expected_payload.encode("utf-8")).hexdigest()
+    assert (
+        record.payload_hash
+        == hashlib.sha256(expected_payload.encode("utf-8")).hexdigest()
+    )
 
 
 def test_build_project_detail_record_parses_simple_detail_schema() -> None:
@@ -99,6 +104,64 @@ def test_build_project_detail_record_parses_simple_detail_schema() -> None:
     assert record.files[1].yanked == "bad sdist"
 
 
+@pytest.mark.property
+@settings(max_examples=50, deadline=None)
+@given(
+    raw_name=st.text(
+        alphabet=st.characters(
+            whitelist_categories=("Ll", "Lu", "Nd"),
+            whitelist_characters="-_.",
+        ),
+        min_size=1,
+        max_size=32,
+    ).filter(lambda value: any(character.isalnum() for character in value)),
+    extra_fields=st.dictionaries(
+        keys=st.text(
+            alphabet=st.characters(
+                whitelist_categories=("Ll", "Lu", "Nd"),
+                whitelist_characters="-_.",
+            ),
+            min_size=1,
+            max_size=8,
+        ).filter(lambda key: key != "name"),
+        values=st.text(
+            alphabet=st.characters(
+                whitelist_categories=("Ll", "Lu", "Nd", "Zs"),
+                whitelist_characters="-_./",
+            ),
+            max_size=16,
+        ),
+        max_size=3,
+    ),
+)
+def test_build_project_discovery_record_canonicalizes_and_hashes(
+    raw_name: str, extra_fields: dict[str, str]
+) -> None:
+    payload = {"name": raw_name, **extra_fields}
+    record = build_project_discovery_record(
+        payload,
+        root_last_serial=123,
+        fetched_at="2026-06-06T00:00:00+00:00",
+    )
+    expected_payload = json.dumps(
+        payload,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+
+    assert record.normalized_name == canonicalize_name(raw_name)
+    assert record.raw_payload_json == expected_payload
+    assert (
+        record.payload_hash
+        == hashlib.sha256(expected_payload.encode("utf-8")).hexdigest()
+    )
+    assert record.suspicion["normalized_differs"] == (
+        record.normalized_name != raw_name
+    )
+    assert record.suspicion["length"] == len(raw_name)
+
+
 @pytest.mark.asyncio
 async def test_iter_root_project_records_from_response_parses_project_list() -> None:
     payload = json.dumps(
@@ -126,28 +189,3 @@ async def test_iter_root_project_records_from_response_parses_project_list() -> 
     assert [record.raw_name for record in records] == ["Requests", "numpy"]
     assert [record.normalized_name for record in records] == ["requests", "numpy"]
     assert all(record.root_last_serial == 123 for record in records)
-
-
-@pytest.mark.asyncio
-@respx.mock
-async def test_iter_root_project_records_streams_via_httpx() -> None:
-    payload = json.dumps(
-        {
-            "meta": {"_last-serial": 456},
-            "projects": [{"name": "Django"}, {"name": "Flask"}],
-        },
-        separators=(",", ":"),
-    ).encode("utf-8")
-    respx.get(PYPI_SIMPLE_INDEX_URL).mock(
-        return_value=httpx.Response(
-            200,
-            headers={"X-PyPI-Last-Serial": "456"},
-            content=payload,
-        )
-    )
-
-    async with httpx.AsyncClient() as client:
-        records = [record async for record in iter_root_project_records(client)]
-
-    assert [record.raw_name for record in records] == ["Django", "Flask"]
-    assert [record.normalized_name for record in records] == ["django", "flask"]

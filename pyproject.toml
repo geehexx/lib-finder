@@ -29,9 +29,22 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "ipdb>=0.13.13",
+    "hypothesis>=6.0.0",
     "pyright>=1.1.410",
     "pytest>=9.0.3",
     "pytest-asyncio>=1.4.0",
+    "pytest-recording>=0.13.0",
     "respx>=0.23.1",
     "ruff>=0.15.16",
+]
+
+[tool.pytest.ini_options]
+addopts = "--strict-markers"
+markers = [
+    "live: tests that require live network access to external services",
+    "recorded: tests that replay recorded HTTP interactions",
+    "smoke: fast end-to-end smoke tests",
+    "property: property-based tests",
+    "slow: slower tests",
+    "vcr: VCR-recorded HTTP tests",
 ]

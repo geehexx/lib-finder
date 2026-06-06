@@ -110,7 +110,9 @@ def _parse_last_serial(value: str | None) -> int | None:
 
 
 def _canonical_payload_json(payload: Mapping[str, Any]) -> str:
-    return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return json.dumps(
+        payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False
+    )
 
 
 def _payload_hash(payload_json: str) -> str:
@@ -138,7 +140,9 @@ def _suspicion_features(raw_name: str, normalized_name: str) -> dict[str, Any]:
         "digit_ratio": digit_count / length if length else 0.0,
         "separator_count": separator_count,
         "separator_ratio": separator_count / length if length else 0.0,
-        "has_repeated_separator": any(marker in raw_name for marker in repeated_markers),
+        "has_repeated_separator": any(
+            marker in raw_name for marker in repeated_markers
+        ),
         "has_mixed_case": any(character.islower() for character in raw_name)
         and any(character.isupper() for character in raw_name),
         "starts_with_separator": raw_name[:1] in "-_.",
@@ -173,16 +177,22 @@ def _parse_optional_serial(value: Any, *, field_name: str) -> int | None:
         serial = _parse_last_serial(value)
         if serial is not None:
             return serial
-    raise TypeError(f"PyPI Simple payload field '{field_name}' must be an integer serial")
+    raise TypeError(
+        f"PyPI Simple payload field '{field_name}' must be an integer serial"
+    )
 
 
 def _parse_serial_from_payload(payload: Mapping[str, Any]) -> int | None:
-    serial = _parse_optional_serial(payload.get("_last-serial"), field_name="_last-serial")
+    serial = _parse_optional_serial(
+        payload.get("_last-serial"), field_name="_last-serial"
+    )
     if serial is not None:
         return serial
     meta = payload.get("meta")
     if isinstance(meta, Mapping):
-        serial = _parse_optional_serial(meta.get("_last-serial"), field_name="meta._last-serial")
+        serial = _parse_optional_serial(
+            meta.get("_last-serial"), field_name="meta._last-serial"
+        )
         if serial is not None:
             return serial
     return None
@@ -197,7 +207,9 @@ def _normalize_string_mapping(
     parsed: dict[str, str] = {}
     for key, raw_value in value.items():
         if not isinstance(key, str) or not key.strip():
-            raise TypeError(f"PyPI Simple payload field '{field_name}' must map string keys to strings")
+            raise TypeError(
+                f"PyPI Simple payload field '{field_name}' must map string keys to strings"
+            )
         string_value = _require_string(raw_value, field_name=f"{field_name}.{key}")
         parsed[key.lower() if lower_keys else key] = string_value
     return parsed
@@ -232,7 +244,9 @@ def _parse_yanked(value: Any) -> bool | str | None:
         return value
     if isinstance(value, str):
         if not value:
-            raise ValueError("PyPI Simple payload field 'yanked' must not be empty when present")
+            raise ValueError(
+                "PyPI Simple payload field 'yanked' must not be empty when present"
+            )
         return value
     raise TypeError("PyPI Simple payload field 'yanked' must be a bool or string")
 
@@ -260,14 +274,18 @@ def _build_project_file_record(payload: Mapping[str, Any]) -> ProjectFileRecord:
         url=url,
         hashes=_normalize_string_mapping(hashes_value, field_name="hashes"),
         size=_parse_int(payload.get("size"), field_name="size"),
-        upload_time=_parse_optional_string(payload.get("upload-time"), field_name="upload-time"),
+        upload_time=_parse_optional_string(
+            payload.get("upload-time"), field_name="upload-time"
+        ),
         requires_python=_parse_optional_string(
             payload.get("requires-python"),
             field_name="requires-python",
         ),
         core_metadata=core_metadata,
         dist_info_metadata=dist_info_metadata,
-        provenance=_parse_optional_string(payload.get("provenance"), field_name="provenance"),
+        provenance=_parse_optional_string(
+            payload.get("provenance"), field_name="provenance"
+        ),
         yanked=_parse_yanked(payload.get("yanked")),
     )
 
@@ -359,12 +377,16 @@ def build_project_detail_record(
 
     normalized_name = canonicalize_name(project_name)
     if canonicalize_name(raw_name) != normalized_name:
-        raise ValueError("PyPI project detail payload name does not match the discovered project")
+        raise ValueError(
+            "PyPI project detail payload name does not match the discovered project"
+        )
 
     raw_payload_json = _canonical_payload_json(payload)
     payload_hash = _payload_hash(raw_payload_json)
     detail_project_last_serial = (
-        project_last_serial if project_last_serial is not None else _parse_serial_from_payload(payload)
+        project_last_serial
+        if project_last_serial is not None
+        else _parse_serial_from_payload(payload)
     )
     project_status, status_reason = _parse_project_status(payload)
 
@@ -379,7 +401,10 @@ def build_project_detail_record(
         status_reason=status_reason,
         meta_api_version=_parse_meta_api_version(payload),
         versions=_parse_versions(payload),
-        files=tuple(_build_project_file_record(file_payload) for file_payload in _parse_files(payload)),
+        files=tuple(
+            _build_project_file_record(file_payload)
+            for file_payload in _parse_files(payload)
+        ),
         suspicion=_suspicion_features(raw_name, normalized_name),
         raw_payload_json=raw_payload_json,
         payload_hash=payload_hash,
@@ -395,7 +420,9 @@ def _parse_files(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     parsed_files: list[Mapping[str, Any]] = []
     for index, file_payload in enumerate(files_value):
         if not isinstance(file_payload, Mapping):
-            raise TypeError(f"PyPI Simple payload field 'files[{index}]' must be a mapping")
+            raise TypeError(
+                f"PyPI Simple payload field 'files[{index}]' must be a mapping"
+            )
         parsed_files.append(file_payload)
     return parsed_files
 
@@ -415,7 +442,9 @@ async def fetch_project_detail_record(
         raw_name=project.raw_name,
         root_last_serial=project.root_last_serial,
         fetched_at=_iso_now(),
-        project_last_serial=_parse_last_serial(response.headers.get("X-PyPI-Last-Serial")),
+        project_last_serial=_parse_last_serial(
+            response.headers.get("X-PyPI-Last-Serial")
+        ),
     )
 
 
@@ -429,7 +458,9 @@ async def iter_root_project_records(
         follow_redirects=True,
     ) as response:
         response.raise_for_status()
-        root_last_serial = _parse_last_serial(response.headers.get("X-PyPI-Last-Serial"))
+        root_last_serial = _parse_last_serial(
+            response.headers.get("X-PyPI-Last-Serial")
+        )
         async for record in iter_root_project_records_from_response(
             response,
             root_last_serial=root_last_serial,
