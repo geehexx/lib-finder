@@ -1,5 +1,7 @@
 # lib-finder Phase 1 Design
 
+> Superseded by [docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md](/home/gxx/projects/lib-finder/docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md) and archived in [`docs/archive/README.md`](/home/gxx/projects/lib-finder/docs/archive/README.md). Kept for historical context only.
+
 Date: 2026-06-06
 Scope: PyPI Simple discovery core with SQLite persistence
 
@@ -20,11 +22,11 @@ This phase intentionally excludes project-detail fetching, release/artifact enri
 The repository currently contains:
 
 - a placeholder CLI entry point in `src/lib_finder/__init__.py`;
-- a prototype `data/sync.py` script that streams the PyPI Simple API into CSV;
+- a prototype CSV-only sync script that streamed the PyPI Simple API into CSV;
 - no tests yet;
 - a minimal `pyproject.toml` with HTTPX, ijson, packaging, Typer, pytest, ruff, and respx available.
 
-The current `data/sync.py` implementation is not aligned with the target design because it assumes per-project `_last-serial` values in the root listing. The current PyPI JSON Simple API puts the project list serial on the response metadata, not on each project record.
+The old CSV-only prototype was not aligned with the target design because it assumed per-project `_last-serial` values in the root listing. The current PyPI JSON Simple API puts the project list serial on the response metadata, not on each project record.
 
 ## Design Principles
 
@@ -60,9 +62,6 @@ The current `data/sync.py` implementation is not aligned with the target design 
 - `src/lib_finder/cli.py`
   - CLI options for database path, CSV export, queue size, batch size, and request timeouts.
   - Default command that runs the phase-1 discovery sync.
-
-- `data/sync.py`
-  - Thin compatibility wrapper that invokes the package CLI or default sync path.
 
 ### Data Flow
 

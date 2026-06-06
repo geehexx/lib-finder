@@ -1,9 +1,25 @@
 from __future__ import annotations
 
 import json
+import sqlite3
+from typing import Any
 
 from lib_finder.pypi import build_project_discovery_record
 from lib_finder.storage import SQLiteStore
+
+
+def _row_value(row: Any | None, key: str) -> Any:
+    if row is None:
+        return None
+    mapping_row: Any = row
+    return mapping_row[key]
+
+
+def _scalar_value(row: Any | None, index: int = 0) -> Any:
+    if row is None:
+        return None
+    sequence_row: Any = row
+    return sequence_row[index]
 
 
 def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
@@ -37,14 +53,22 @@ def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
     package_rows = store.connection.execute(
         "SELECT normalized_name, raw_name, root_last_serial, suspicion_json FROM packages ORDER BY normalized_name"
     ).fetchall()
-    assert [row["normalized_name"] for row in package_rows] == ["numpy", "requests"]
-    assert package_rows[1]["raw_name"] == "Requests"
-    assert package_rows[1]["root_last_serial"] == 987
-    assert json.loads(package_rows[1]["suspicion_json"])["has_mixed_case"] is True
+    assert [_row_value(row, "normalized_name") for row in package_rows] == [
+        "numpy",
+        "requests",
+    ]
+    assert _row_value(package_rows[1], "raw_name") == "Requests"
+    assert _row_value(package_rows[1], "root_last_serial") == 987
+    assert (
+        json.loads(_row_value(package_rows[1], "suspicion_json"))["has_mixed_case"]
+        is True
+    )
 
-    source_count = store.connection.execute(
+    source_count_row = store.connection.execute(
         "SELECT COUNT(*) FROM source_records"
-    ).fetchone()[0]
+    ).fetchone()
+    assert source_count_row is not None
+    source_count = _scalar_value(source_count_row)
     assert source_count == 2
 
     checkpoint = store.connection.execute(
@@ -52,7 +76,7 @@ def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
         ("pypi_simple_root",),
     ).fetchone()
     assert checkpoint is not None
-    checkpoint_json = json.loads(checkpoint["checkpoint_json"])
+    checkpoint_json = json.loads(_row_value(checkpoint, "checkpoint_json"))
     assert checkpoint_json["latest_normalized_name"] == "numpy"
     assert checkpoint_json["root_last_serial"] == 987
 
@@ -68,11 +92,73 @@ def test_sqlite_store_creates_schema_and_persists_batches(tmp_path) -> None:
         "SELECT status, root_last_serial, records_seen, records_written, error_count FROM index_runs WHERE id = ?",
         (run_id,),
     ).fetchone()
-    assert run_row["status"] == "completed"
-    assert run_row["root_last_serial"] == 987
-    assert run_row["records_seen"] == 2
-    assert run_row["records_written"] == 2
-    assert run_row["error_count"] == 0
+    assert _row_value(run_row, "status") == "completed"
+    assert _row_value(run_row, "root_last_serial") == 987
+    assert _row_value(run_row, "records_seen") == 2
+    assert _row_value(run_row, "records_written") == 2
+    assert _row_value(run_row, "error_count") == 0
+
+    store.close()
+
+
+def test_sqlite_store_upgrades_legacy_schema_via_alembic(tmp_path) -> None:
+    db_path = tmp_path / "legacy.sqlite3"
+    with sqlite3.connect(db_path) as connection:
+        connection.executescript(
+            """
+            PRAGMA foreign_keys = ON;
+            CREATE TABLE packages (
+              normalized_name TEXT PRIMARY KEY,
+              raw_name TEXT NOT NULL,
+              first_seen_at TEXT NOT NULL,
+              last_seen_at TEXT NOT NULL,
+              root_last_serial INTEGER,
+              project_last_serial INTEGER,
+              project_status TEXT,
+              status_reason TEXT,
+              suspicion_json TEXT NOT NULL DEFAULT '{}',
+              qualification_state TEXT NOT NULL DEFAULT 'discovered'
+            );
+            INSERT INTO packages (
+              normalized_name, raw_name, first_seen_at, last_seen_at,
+              root_last_serial, project_last_serial, project_status,
+              status_reason, suspicion_json, qualification_state
+            ) VALUES (
+              'legacy',
+              'Legacy',
+              '2026-06-06T00:00:00+00:00',
+              '2026-06-06T00:00:00+00:00',
+              1,
+              NULL,
+              NULL,
+              NULL,
+              '{}',
+              'discovered'
+            );
+            """
+        )
+
+    store = SQLiteStore.open(db_path)
+
+    package_columns = {
+        _row_value(row, "name")
+        for row in store.connection.execute("PRAGMA table_info(packages)").fetchall()
+    }
+    assert "qualification_reason" in package_columns
+
+    alembic_version = store.connection.execute(
+        "SELECT version_num FROM alembic_version"
+    ).fetchone()
+    assert alembic_version is not None
+    assert _row_value(alembic_version, "version_num") == "0001_initial"
+
+    legacy_row = store.connection.execute(
+        "SELECT normalized_name, qualification_reason FROM packages WHERE normalized_name = ?",
+        ("legacy",),
+    ).fetchone()
+    assert legacy_row is not None
+    assert _row_value(legacy_row, "normalized_name") == "legacy"
+    assert _row_value(legacy_row, "qualification_reason") is None
 
     store.close()
 
@@ -95,16 +181,18 @@ def test_write_discovery_batch_is_idempotent_for_source_records(tmp_path) -> Non
     store.write_discovery_batch(run_id=run_id, records=(record,))
     store.write_discovery_batch(run_id=run_id, records=(record,))
 
-    source_count = store.connection.execute(
+    source_count_row = store.connection.execute(
         "SELECT COUNT(*) FROM source_records"
-    ).fetchone()[0]
+    ).fetchone()
+    assert source_count_row is not None
+    source_count = _scalar_value(source_count_row)
     assert source_count == 1
     run_row = store.connection.execute(
         "SELECT records_seen, records_written FROM index_runs WHERE id = ?",
         (run_id,),
     ).fetchone()
-    assert run_row["records_seen"] == 2
-    assert run_row["records_written"] == 2
+    assert _row_value(run_row, "records_seen") == 2
+    assert _row_value(run_row, "records_written") == 2
 
     store.close()
 
@@ -170,7 +258,7 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
     store = SQLiteStore.open(db_path)
 
     detail_tables = {
-        row["name"]
+        _row_value(row, "name")
         for row in store.connection.execute(
             """
             SELECT name
@@ -236,10 +324,10 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         ("requests",),
     ).fetchone()
-    assert package_row["raw_name"] == "requests"
-    assert package_row["project_last_serial"] == 4321
-    assert package_row["project_status"] == "active"
-    assert package_row["status_reason"] == "maintained"
+    assert _row_value(package_row, "raw_name") == "requests"
+    assert _row_value(package_row, "project_last_serial") == 4321
+    assert _row_value(package_row, "project_status") == "active"
+    assert _row_value(package_row, "status_reason") == "maintained"
 
     snapshot_row = store.connection.execute(
         """
@@ -249,11 +337,11 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         ("requests",),
     ).fetchone()
-    assert snapshot_row["normalized_name"] == "requests"
-    assert snapshot_row["detail_last_serial"] == 4321
-    assert snapshot_row["project_status"] == "active"
-    assert snapshot_row["status_reason"] == "maintained"
-    assert json.loads(snapshot_row["raw_payload_json"])["versions"] == [
+    assert _row_value(snapshot_row, "normalized_name") == "requests"
+    assert _row_value(snapshot_row, "detail_last_serial") == 4321
+    assert _row_value(snapshot_row, "project_status") == "active"
+    assert _row_value(snapshot_row, "status_reason") == "maintained"
+    assert json.loads(_row_value(snapshot_row, "raw_payload_json"))["versions"] == [
         "2.31.0",
         "2.32.0",
     ]
@@ -267,8 +355,14 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         ("requests",),
     ).fetchall()
-    assert [row["version"] for row in version_rows] == ["2.31.0", "2.32.0"]
-    assert all(row["first_seen_at"] == row["last_seen_at"] for row in version_rows)
+    assert [_row_value(row, "version") for row in version_rows] == [
+        "2.31.0",
+        "2.32.0",
+    ]
+    assert all(
+        _row_value(row, "first_seen_at") == _row_value(row, "last_seen_at")
+        for row in version_rows
+    )
 
     artifact_rows = store.connection.execute(
         """
@@ -280,26 +374,28 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         ("requests",),
     ).fetchall()
-    assert [row["filename"] for row in artifact_rows] == [
+    assert [_row_value(row, "filename") for row in artifact_rows] == [
         "requests-2.31.0.tar.gz",
         "requests-2.32.0-py3-none-any.whl",
     ]
-    assert artifact_rows[0]["version"] == "2.31.0"
-    assert artifact_rows[0]["size"] == 100
-    assert artifact_rows[0]["upload_time"] == "2026-06-06T00:00:00Z"
-    assert artifact_rows[0]["requires_python"] is None
-    assert artifact_rows[0]["yanked"] == 1
-    assert artifact_rows[0]["yanked_reason"] == "broken release"
-    assert json.loads(artifact_rows[0]["hashes_json"]) == {"sha256": "1111"}
-    assert json.loads(artifact_rows[0]["core_metadata_json"]) is False
-    assert artifact_rows[0]["provenance"] is None
-    assert artifact_rows[1]["version"] == "2.32.0"
-    assert artifact_rows[1]["requires_python"] == ">=3.9"
-    assert artifact_rows[1]["yanked"] == 0
-    assert artifact_rows[1]["yanked_reason"] is None
-    assert json.loads(artifact_rows[1]["hashes_json"]) == {"sha256": "2222"}
-    assert json.loads(artifact_rows[1]["core_metadata_json"]) == {"sha256": "3333"}
-    assert artifact_rows[1]["provenance"].endswith("/provenance")
+    assert _row_value(artifact_rows[0], "version") == "2.31.0"
+    assert _row_value(artifact_rows[0], "size") == 100
+    assert _row_value(artifact_rows[0], "upload_time") == "2026-06-06T00:00:00Z"
+    assert _row_value(artifact_rows[0], "requires_python") is None
+    assert _row_value(artifact_rows[0], "yanked") == 1
+    assert _row_value(artifact_rows[0], "yanked_reason") == "broken release"
+    assert json.loads(_row_value(artifact_rows[0], "hashes_json")) == {"sha256": "1111"}
+    assert json.loads(_row_value(artifact_rows[0], "core_metadata_json")) is False
+    assert _row_value(artifact_rows[0], "provenance") is None
+    assert _row_value(artifact_rows[1], "version") == "2.32.0"
+    assert _row_value(artifact_rows[1], "requires_python") == ">=3.9"
+    assert _row_value(artifact_rows[1], "yanked") == 0
+    assert _row_value(artifact_rows[1], "yanked_reason") is None
+    assert json.loads(_row_value(artifact_rows[1], "hashes_json")) == {"sha256": "2222"}
+    assert json.loads(_row_value(artifact_rows[1], "core_metadata_json")) == {
+        "sha256": "3333"
+    }
+    assert _row_value(artifact_rows[1], "provenance").endswith("/provenance")
 
     source_row = store.connection.execute(
         """
@@ -309,9 +405,9 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         ("pypi_simple_project_detail",),
     ).fetchone()
-    assert source_row["record_type"] == "project_detail"
-    assert source_row["identity"] == "requests"
-    assert source_row["serial"] == 4321
+    assert _row_value(source_row, "record_type") == "project_detail"
+    assert _row_value(source_row, "identity") == "requests"
+    assert _row_value(source_row, "serial") == 4321
 
     run_row = store.connection.execute(
         """
@@ -321,8 +417,8 @@ def test_sqlite_store_creates_project_detail_schema_and_persists_detail_batch(
         """,
         (run_id,),
     ).fetchone()
-    assert run_row["records_seen"] == 1
-    assert run_row["records_written"] == 1
+    assert _row_value(run_row, "records_seen") == 1
+    assert _row_value(run_row, "records_written") == 1
 
     store.close()
 
@@ -359,18 +455,24 @@ def test_write_project_detail_batch_is_idempotent_for_detail_rows(tmp_path) -> N
     store.write_project_detail_batch(run_id=run_id, records=(detail_payload,))
     store.write_project_detail_batch(run_id=run_id, records=(detail_payload,))
 
-    snapshot_count = store.connection.execute(
+    snapshot_count_row = store.connection.execute(
         "SELECT COUNT(*) FROM project_detail_snapshots WHERE normalized_name = ?",
         ("sampleproject",),
-    ).fetchone()[0]
-    version_count = store.connection.execute(
+    ).fetchone()
+    version_count_row = store.connection.execute(
         "SELECT COUNT(*) FROM project_versions WHERE normalized_name = ?",
         ("sampleproject",),
-    ).fetchone()[0]
-    artifact_count = store.connection.execute(
+    ).fetchone()
+    artifact_count_row = store.connection.execute(
         "SELECT COUNT(*) FROM project_artifacts WHERE normalized_name = ?",
         ("sampleproject",),
-    ).fetchone()[0]
+    ).fetchone()
+    assert snapshot_count_row is not None
+    assert version_count_row is not None
+    assert artifact_count_row is not None
+    snapshot_count = _scalar_value(snapshot_count_row)
+    version_count = _scalar_value(version_count_row)
+    artifact_count = _scalar_value(artifact_count_row)
     assert snapshot_count == 1
     assert version_count == 1
     assert artifact_count == 1
@@ -379,7 +481,126 @@ def test_write_project_detail_batch_is_idempotent_for_detail_rows(tmp_path) -> N
         "SELECT records_seen, records_written FROM index_runs WHERE id = ?",
         (run_id,),
     ).fetchone()
-    assert run_row["records_seen"] == 2
-    assert run_row["records_written"] == 2
+    assert _row_value(run_row, "records_seen") == 2
+    assert _row_value(run_row, "records_written") == 2
+
+    store.close()
+
+
+def test_refresh_adoption_rollups_updates_package_state_and_is_idempotent(
+    tmp_path,
+) -> None:
+    db_path = tmp_path / "lib-finder.sqlite3"
+    store = SQLiteStore.open(db_path)
+    run_id = store.start_run(
+        source="pypi_simple_root",
+        mode="discovery",
+        root_last_serial=111,
+        settings={},
+    )
+    store.write_discovery_batch(
+        run_id=run_id,
+        records=(
+            build_project_discovery_record(
+                {"name": "Requests"},
+                root_last_serial=111,
+                fetched_at="2026-06-06T00:00:00+00:00",
+            ),
+            build_project_discovery_record(
+                {"name": "Flask"},
+                root_last_serial=111,
+                fetched_at="2026-06-06T00:00:00+00:00",
+            ),
+        ),
+    )
+
+    detail_payload = {
+        "name": "requests",
+        "meta": {"_last-serial": 222, "api-version": "1.4"},
+        "project-status": {"status": "active", "reason": "maintained"},
+        "versions": ["2.31.0", "2.32.0"],
+        "files": [
+            {
+                "filename": "requests-2.31.0.tar.gz",
+                "url": "https://files.pythonhosted.org/packages/example/requests-2.31.0.tar.gz",
+                "hashes": {"sha256": "1111"},
+                "size": 100,
+                "upload-time": "2026-06-06T00:00:00Z",
+                "yanked": False,
+            },
+            {
+                "filename": "requests-2.32.0-py3-none-any.whl",
+                "url": "https://files.pythonhosted.org/packages/example/requests-2.32.0-py3-none-any.whl",
+                "hashes": {"sha256": "2222"},
+                "size": 200,
+                "upload-time": "2026-06-06T01:00:00Z",
+                "yanked": False,
+            },
+        ],
+    }
+    store.write_project_detail_batch(run_id=run_id, records=(detail_payload,))
+
+    result = store.refresh_adoption_rollups()
+    assert result.records_seen == 2
+    assert result.records_written == 2
+    assert result.qualified_count == 1
+
+    rollup_rows = store.connection.execute(
+        """
+        SELECT normalized_name, qualification_score, qualification_state, qualification_reason
+        FROM package_adoption_rollups
+        ORDER BY normalized_name
+        """
+    ).fetchall()
+    assert [_row_value(row, "normalized_name") for row in rollup_rows] == [
+        "flask",
+        "requests",
+    ]
+    assert _row_value(rollup_rows[0], "qualification_state") == "discovered"
+    assert _row_value(rollup_rows[1], "qualification_state") == "qualified"
+    assert "score=" in _row_value(rollup_rows[1], "qualification_reason")
+
+    package_rows = store.connection.execute(
+        """
+        SELECT normalized_name, qualification_state, qualification_reason
+        FROM packages
+        ORDER BY normalized_name
+        """
+    ).fetchall()
+    assert _row_value(package_rows[0], "qualification_state") == "discovered"
+    assert _row_value(package_rows[1], "qualification_state") == "qualified"
+    assert _row_value(package_rows[1], "qualification_reason") == _row_value(
+        rollup_rows[1], "qualification_reason"
+    )
+
+    repeat = store.refresh_adoption_rollups()
+    assert repeat.records_seen == 2
+    assert repeat.records_written == 2
+    assert repeat.qualified_count == 1
+
+    repeat_rollup_rows = store.connection.execute(
+        """
+        SELECT normalized_name, qualification_score, qualification_state, qualification_reason
+        FROM package_adoption_rollups
+        ORDER BY normalized_name
+        """
+    ).fetchall()
+    assert [
+        (
+            _row_value(row, "normalized_name"),
+            _row_value(row, "qualification_score"),
+            _row_value(row, "qualification_state"),
+            _row_value(row, "qualification_reason"),
+        )
+        for row in repeat_rollup_rows
+    ] == [
+        (
+            _row_value(row, "normalized_name"),
+            _row_value(row, "qualification_score"),
+            _row_value(row, "qualification_state"),
+            _row_value(row, "qualification_reason"),
+        )
+        for row in rollup_rows
+    ]
 
     store.close()

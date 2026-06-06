@@ -104,8 +104,11 @@ def test_build_project_detail_record_parses_simple_detail_schema() -> None:
     assert record.files[1].yanked == "bad sdist"
 
 
+@pytest.mark.filterwarnings(
+    "ignore:unclosed database in <sqlite3.Connection:ResourceWarning"
+)
 @pytest.mark.property
-@settings(max_examples=50, deadline=None)
+@settings(max_examples=50, deadline=None, database=None)
 @given(
     raw_name=st.text(
         alphabet=st.characters(

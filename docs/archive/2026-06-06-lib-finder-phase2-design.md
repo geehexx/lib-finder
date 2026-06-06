@@ -1,5 +1,7 @@
 # lib-finder Phase 2 Design
 
+> Superseded by [docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md](/home/gxx/projects/lib-finder/docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md) and archived in [`docs/archive/README.md`](/home/gxx/projects/lib-finder/docs/archive/README.md). Kept for historical context only.
+
 Date: 2026-06-06
 Scope: PyPI Simple project-detail ingestion, release rows, and artifact persistence
 

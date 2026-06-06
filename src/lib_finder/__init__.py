@@ -1,20 +1,12 @@
-from .cli import main
-from .pipeline import (
-    SyncConfig,
-    SyncResult,
-    run_detail_sync,
-    run_discovery_sync,
-    run_sync,
-)
-from .pypi import ProjectDiscoveryRecord, ProjectSelectionRecord
+"""lib-finder package metadata."""
 
-__all__ = [
-    "ProjectDiscoveryRecord",
-    "ProjectSelectionRecord",
-    "SyncConfig",
-    "SyncResult",
-    "main",
-    "run_detail_sync",
-    "run_discovery_sync",
-    "run_sync",
-]
+from __future__ import annotations
+
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("lib-finder")
+except PackageNotFoundError:  # pragma: no cover - editable/dev install fallback
+    __version__ = "0.0.0"
+
+__all__ = ["__version__"]
