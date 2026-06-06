@@ -217,7 +217,7 @@ git commit -m "refactor: centralize source record factory logic"
 Run: `git status --short --ignored`
 Expected: `.codex/CODEX.md` appears only as ignored local state, not as a tracked product file.
 
-- [ ] **Step 3: Commit only tracked docs/code changes**
+- [x] **Step 3: Commit only tracked docs/code changes**
 
 ```bash
 git add .gitignore README.md
@@ -250,7 +250,7 @@ Run:
 
 Expected: all commands pass.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add README.md docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md docs/testing/README.md lefthook.yml
