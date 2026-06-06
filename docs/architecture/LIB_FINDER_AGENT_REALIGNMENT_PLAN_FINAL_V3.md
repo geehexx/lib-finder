@@ -4,7 +4,7 @@
 
 **Goal:** Realign `lib-finder` to the V3 architecture plan: SQLAlchemy Core storage, Haystack-centered pipelines, LangExtract/Ollama grounded extraction, ontology-backed evidence, and hybrid retrieval/evaluation infrastructure.
 
-**Architecture:** Treat the V3 plan from Downloads as the controlling source of truth. First consolidate docs and archive contradictory specs, then clean import boundaries so the package root stays light. After that, migrate storage to SQLAlchemy Core + Alembic, split source/pipeline modules into typed boundaries, and then layer in Haystack, LangExtract, ontology, retrieval, and evaluation in bounded batches.
+**Architecture:** Treat the V3 plan from Downloads as the controlling source of truth. First consolidate docs and archive contradictory specs, then clean import boundaries so the package root stays light. After that, migrate storage to SQLAlchemy Core + Alembic, split source/pipeline modules into typed boundaries, and then layer in Haystack, LangExtract, ontology, retrieval, and evaluation in bounded batches. The next refactor priority after the boundary splits is the source/parsing cleanup pass: reduce LBYL-heavy coercion paths, prefer EAFP where it makes failure clearer, and centralize repeated construction behind small factory/service objects before expanding the later domain layers.
 
 **Operator policy:** Keep RTK as the agent-side wrapper for noisy local commands, but keep `uv run ...` as the canonical command surface in docs, CI, and examples. Recorded smoke tests that are unstable under xdist should be isolated into a serial lane rather than forcing every non-live run through the same parallel policy.
 
@@ -153,7 +153,7 @@ keeps the future LangExtract/Ollama wiring at a separate boundary.
 
 - [ ] Inventory repeated object construction and private-helper clusters in the core modules.
 - [ ] Audit coercion-heavy code such as `src/lib_finder/sources/parsing.py` for EAFP-style simplification where try/except reduces branching and makes the failure mode clearer.
-- [ ] Promote repeated construction paths into explicit factory/service objects where that reduces coupling.
+- [ ] Extract repeated record and validation construction into explicit factory/service objects whenever that removes coupling or flattens a nested helper cluster.
 - [ ] Keep private helper functions only where they are true implementation details; prefer narrower, named interfaces for shared creation.
 - [ ] Keep local Codex/agent artifacts outside the repo boundary and documented as private-only workspace material.
 - [ ] Add benchmark and testmon opt-in lanes if they improve signal without slowing the default hooks.

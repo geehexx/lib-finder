@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.14, Pydantic, pytest, ruff, pyright, import-linter, lefthook, UV, RTK.
 
+**Priority note:** Treat this as the next refactor lane before broadening later V3 domain layers. When touching `src/lib_finder/sources/parsing.py` or related construction paths, prefer the simplest boundary that removes LBYL guard ladders, makes the failure point obvious, and exposes a small factory/service object only where it actually reduces coupling.
+
 ---
 
 ### Task 1: Introduce a source-record factory boundary
@@ -187,7 +189,7 @@ DEFAULT_PYPI_RECORD_FACTORY = PyPIRecordFactory()
 Run: `UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_pypi.py tests/test_pypi_edges.py tests/test_sources.py -q`
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add src/lib_finder/sources/factories.py src/lib_finder/sources/parsing.py tests/test_pypi.py tests/test_pypi_edges.py tests/test_sources.py
@@ -255,4 +257,51 @@ Expected: all commands pass.
 ```bash
 git add README.md docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md docs/testing/README.md lefthook.yml
 git commit -m "docs: align source factory simplification"
+```
+
+### Task 4: Prioritize the next EAFP/OO cleanup wave
+
+**Files:**
+- Review: `src/lib_finder/sources/parsing.py`
+- Review: `src/lib_finder/sources/factories.py`
+- Review: `src/lib_finder/storage/store.py`
+- Review: `src/lib_finder/pipeline/qualification.py`
+- Review: `tests/test_pypi_edges.py`
+- Review: `tests/test_storage_edges.py`
+- Modify: `docs/architecture/LIB_FINDER_AGENT_REALIGNMENT_PLAN_FINAL_V3.md`
+- Modify: `docs/testing/README.md`
+- Modify: `.codex/CODEX.md`
+
+- [ ] **Step 1: Audit the coercion-heavy branches**
+
+```python
+# Look for repeated pre-checks that only exist to protect a coercion.
+# Prefer a single try/except if it makes the failure path clearer.
+# Keep only the validation that materially changes the error message or behavior.
+```
+
+- [ ] **Step 2: Convert the next simplest cluster into a factory or service object**
+
+```python
+# If a helper cluster is constructing the same record or validation output
+# in several places, move that construction behind a named object.
+# Keep the public module surface thin and preserve compatibility wrappers
+# only where external imports still depend on them.
+```
+
+- [ ] **Step 3: Rehearse the lane boundaries in docs and local notes**
+
+```md
+- Document the EAFP/factory preference in the V3 plan and testing guide.
+- Keep `.codex/CODEX.md` as the local memory for this refactor style.
+- Keep unit/edge tests closest to the parsing and factory boundaries.
+```
+
+- [ ] **Step 4: Verify the focused refactor lane before moving to broader V3 work**
+
+```bash
+UV_CACHE_DIR=/tmp/uv-cache uv run pytest tests/test_pypi.py tests/test_pypi_edges.py tests/test_storage_edges.py -q
+UV_CACHE_DIR=/tmp/uv-cache uv run ruff check src tests
+UV_CACHE_DIR=/tmp/uv-cache uv run pyright
+UV_CACHE_DIR=/tmp/uv-cache uv run lint-imports
 ```

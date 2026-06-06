@@ -100,6 +100,14 @@ Use timings to guide lane design and code changes instead of guessing.
   the hook or adding more mocking; the biggest regressions have come from
   unnecessary executor offloading around SQLite writes.
 
+When refactoring parsing or construction code, keep the smallest possible
+unit/edge tests around the branch that is being flattened. That usually means:
+
+- add or update one or two focused unit tests before changing the coercion path;
+- keep a companion edge test for the exceptional branch you are simplifying;
+- prefer a tiny factory/service object over an extra layer of private helpers if
+  the new boundary makes the tests easier to read and maintain.
+
 ## RTK Policy
 
 RTK is the agent-side wrapper for reducing command noise in long sessions.
