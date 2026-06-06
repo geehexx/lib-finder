@@ -41,17 +41,20 @@ def main() -> None:
 
     with cache_file.open(mode="w", encoding="utf-8", newline="") as f:
         writer = csv.writer(f, lineterminator="\n")
-
         writer.writerow(["name", "last_serial"])
 
         with tqdm(
-            unit="packages",
+            unit=" packages",
             unit_scale=True,
             desc="Syncing PyPI index",
         ) as progress_bar:
             for project in _iter_pypi_index_projects():
-                writer.writerow([project["name"], project.get("_last-serial", "")])
-                progress_bar.update(1)
+                try:
+                    writer.writerow([project["name"], project["_last-serial"]])
+                except KeyError:
+                    pass
+                finally:
+                    progress_bar.update(1)
 
 
 if __name__ == "__main__":
